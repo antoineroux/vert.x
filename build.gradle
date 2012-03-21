@@ -168,8 +168,16 @@ def distSpec = copySpec {
 }
 
 
+// Builds the distributable tar.gz
+task dist(type: Tar) {
+  into("$project.name-$version") {
+    with distSpec
+  }
+  compression = org.gradle.api.tasks.bundling.Compression.GZIP
+}
+
 // Builds the distributable zip
-task dist(type: Zip) {
+task zipDist(type: Zip) {
   description = 'Builds the distribution.'
   group = 'build'
   into("$project.name-$version") {
@@ -177,13 +185,7 @@ task dist(type: Zip) {
   }
 }
 
-// Builds the distributable tar.gz
-task tarDist(type: Tar) {
-  into("$project.name-$version") {
-    with distSpec
-  }
-  compression = org.gradle.api.tasks.bundling.Compression.GZIP
-}
+
 
 // Synchronizes results of the build with VERTX_HOME, as if the application had
 // been installed from a zip of tar.gz.
