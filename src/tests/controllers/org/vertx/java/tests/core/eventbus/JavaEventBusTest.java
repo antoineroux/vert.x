@@ -18,11 +18,11 @@ package org.vertx.java.tests.core.eventbus;
 
 import org.junit.Test;
 import org.vertx.java.core.Handler;
+import org.vertx.java.core.Vertx;
 import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
-import org.vertx.java.core.shareddata.SharedData;
 import org.vertx.java.framework.TestBase;
 import vertx.tests.core.eventbus.LocalClient;
 import vertx.tests.core.eventbus.LocalPeer;
@@ -44,7 +44,7 @@ public class JavaEventBusTest extends TestBase {
   @Override
   protected void setUp() throws Exception {
     super.setUp();
-    SharedData.instance.getSet("addresses").clear();
+    vertx.sharedData().getSet("addresses").clear();
     for (int i = 0; i < numPeers; i++) {
       startApp(getPeerClassName());
     }
@@ -110,7 +110,7 @@ public class JavaEventBusTest extends TestBase {
   }
 
   public void testNoContext() throws Exception {
-    final EventBus eb = EventBus.instance;
+    final EventBus eb = Vertx.newVertx().eventBus();
     final CountDownLatch latch = new CountDownLatch(1);
     eb.registerHandler("foo", new Handler<Message<String>>() {
       public void handle(Message<String> msg) {

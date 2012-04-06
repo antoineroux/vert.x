@@ -19,7 +19,7 @@ include Vertx
 end
 
 # Link up the client side to the server side event bus
-Vertx::SockJSBridge.new(@server, {'prefix' => '/eventbus'},
+Vertx::SockJSServer.new(@server).bridge({'prefix' => '/eventbus'},
  [
     # Allow calls to get static album data from the persistor
     {
@@ -40,7 +40,3 @@ Vertx::SockJSBridge.new(@server, {'prefix' => '/eventbus'},
   ])
 
 @server.listen(8080, 'localhost')
-
-def vertx_stop 
-  server.close
-end

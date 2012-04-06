@@ -25,6 +25,12 @@ import org.vertx.java.deploy.impl.VerticleManager;
  */
 public class JavaVerticleFactory implements VerticleFactory {
 
+  public JavaVerticleFactory(VerticleManager mgr) {
+    this.mgr = mgr;
+  }
+
+  private final VerticleManager mgr;
+
   public Verticle createVerticle(String main, ClassLoader cl) throws Exception {
 
     Class clazz = cl.loadClass(main);
@@ -45,6 +51,6 @@ public class JavaVerticleFactory implements VerticleFactory {
   }
 
   public void reportException(Throwable t) {
-    VerticleManager.instance.getLogger().error("Exception in Java verticle script", t);
+    mgr.getLogger().error("Exception in Java verticle script", t);
   }
 }

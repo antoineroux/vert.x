@@ -16,7 +16,7 @@
 
 load('vertx.js')
 
-var server = new vertx.HttpServer().setSSL(true).
+var server = vertx.createHttpServer().setSSL(true).
                                     setKeyStorePath('server-keystore.jks').
                                     setKeyStorePassword('wibble');
 
@@ -24,6 +24,3 @@ server.requestHandler(function(req) {
   req.response.end("<html><body><h1>Hello from vert.x!</h1></body></html>");
 }).listen(4443, 'localhost');
 
-function vertxStop() {
-  server.close();
-}

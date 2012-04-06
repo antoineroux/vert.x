@@ -17,30 +17,23 @@
 package org.vertx.java.examples.https;
 
 import org.vertx.java.core.Handler;
-import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.deploy.Verticle;
 
-public class ServerExample implements Verticle {
-
-  private HttpServer server;
+public class ServerExample extends Verticle {
 
   public void start() {
-    server = new HttpServer().requestHandler(new Handler<HttpServerRequest>() {
+    vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
       public void handle(HttpServerRequest req) {
         System.out.println("Got request: " + req.uri);
         System.out.println("Headers are: ");
-        for (String key : req.getHeaderNames()) {
-          System.out.println(key + ":" + req.getHeader(key));
+        for (String key : req.headers().keySet()) {
+          System.out.println(key + ":" + req.headers().get(key));
         }
-        req.response.putHeader("Content-Type", "text/html; charset=UTF-8");
+        req.response.headers().put("Content-Type", "text/html; charset=UTF-8");
         req.response.setChunked(true);
         req.response.write("<html><body><h1>Hello from vert.x!</h1></body></html>", "UTF-8").end();
       }
     }).setSSL(true).setKeyStorePath("server-keystore.jks").setKeyStorePassword("wibble").listen(4443);
-  }
-
-  public void stop() {
-    server.close();
   }
 }

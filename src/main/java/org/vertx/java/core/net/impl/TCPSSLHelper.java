@@ -81,16 +81,10 @@ public class TCPSSLHelper {
   Currently Netty does not provide all events for a connection on the same thread - e.g. connection open
   connection bound etc are provided on the acceptor thread.
   In vert.x we must ensure all events are executed on the correct event loop for the context
-  So for now we need to do this manually by checking the thread and executing it on the event loop
-  thread if it's not the right one.
   This code will go away if Netty acts like a proper event loop.
    */
   public void runOnCorrectThread(NioSocketChannel nch, Runnable runnable) {
-    if (Thread.currentThread() != nch.getWorker().getThread()) {
-      nch.getWorker().scheduleOtherTask(runnable);
-    } else {
-      runnable.run();
-    }
+    nch.getWorker().executeInIoThread(runnable, false);
   }
 
   public Map<String, Object> generateConnectionOptions() {
@@ -300,7 +294,7 @@ public class TCPSSLHelper {
   private KeyManager[] getKeyMgrs(final String ksPath, final String ksPassword) throws Exception {
     KeyManagerFactory fact = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
     KeyStore ks = loadStore(ksPath, ksPassword);
-    fact.init(ks, ksPassword.toCharArray());
+    fact.init(ks, ksPassword != null ? ksPassword.toCharArray(): null);
     return fact.getKeyManagers();
   }
 
@@ -309,7 +303,7 @@ public class TCPSSLHelper {
     InputStream in = null;
     try {
       in = new FileInputStream(new File(ksPath));
-      ks.load(in, ksPassword.toCharArray());
+      ks.load(in, ksPassword != null ? ksPassword.toCharArray(): null);
     } finally {
       if (in != null) {
         try {

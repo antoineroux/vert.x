@@ -20,6 +20,7 @@ import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.RouteMatcher;
+import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 import org.vertx.java.core.sockjs.AppConfig;
@@ -45,10 +46,10 @@ class XhrTransport extends BaseTransport {
     H_BLOCK = new Buffer(bytes);
   }
 
-  XhrTransport(RouteMatcher rm, String basePath, final Map<String, Session> sessions, final AppConfig config,
+  XhrTransport(VertxInternal vertx,RouteMatcher rm, String basePath, final Map<String, Session> sessions, final AppConfig config,
             final Handler<SockJSSocket> sockHandler) {
 
-    super(sessions, config);
+    super(vertx, sessions, config);
 
     String xhrBase = basePath + COMMON_PATH_ELEMENT_RE;
     String xhrRE = xhrBase + "xhr";
@@ -69,7 +70,7 @@ class XhrTransport extends BaseTransport {
     rm.postWithRegEx(xhrSendRE, new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
 
-        String sessionID = req.getAllParams().get("param0");
+        String sessionID = req.params().get("param0");
 
         final Session session = sessions.get(sessionID);
 
@@ -89,7 +90,7 @@ class XhrTransport extends BaseTransport {
     rm.postWithRegEx(re, new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
 
-        String sessionID = req.getAllParams().get("param0");
+        String sessionID = req.params().get("param0");
         Session session = getSession(config.getSessionTimeout(), config.getHeartbeatPeriod(), sessionID, sockHandler);
 
         session.register(streaming? new XhrStreamingListener(config.getMaxBytesStreaming(), req, session) : new XhrPollingListener(req, session));
@@ -112,7 +113,7 @@ class XhrTransport extends BaseTransport {
         if (!session.handleMessages(msgs)) {
           sendInvalidJSON(req.response);
         } else {
-          req.response.putHeader("Content-Type", "text/plain; charset=UTF-8");
+          req.response.headers().put("Content-Type", "text/plain; charset=UTF-8");
           setJSESSIONID(config, req);
           setCORS(req);
           req.response.statusCode = 204;
@@ -135,7 +136,7 @@ class XhrTransport extends BaseTransport {
 
     public void sendFrame(String body) {
       if (!headersWritten) {
-        req.response.putHeader("Content-Type", "application/javascript; charset=UTF-8");
+        req.response.headers().put("Content-Type", "application/javascript; charset=UTF-8");
         setJSESSIONID(config, req);
         setCORS(req);
         req.response.setChunked(true);

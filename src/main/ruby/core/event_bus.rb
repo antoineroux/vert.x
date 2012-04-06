@@ -20,7 +20,7 @@ module Vertx
   # This class represents a distributed lightweight event bus which can encompass multiple vert.x instances.
   # It is very useful for otherwise isolated vert.x application instances to communicate with each other.
   #
-  # Messages sent over the event bus are json objects represented as Ruby Hash instances.
+  # Messages sent over the event bus are JSON objects represented as Ruby Hash instances.
   #
   # The event bus implements a distributed publish / subscribe network.
   #
@@ -48,6 +48,8 @@ module Vertx
 
     @@handler_map = {}
 
+    @@j_eventbus = org.vertx.java.deploy.impl.VertxLocator.vertx.eventBus()
+
     # Send a message on the event bus
     # @param message [Hash] The message to send
     # @param reply_handler [Block] replyHandler An optional reply handler.
@@ -57,9 +59,9 @@ module Vertx
       raise "A message must be specified" if message == nil
       message = convert_msg(message)
       if reply_handler != nil
-        org.vertx.java.core.eventbus.EventBus.instance.send(address, message, InternalHandler.new(reply_handler))
+        @@j_eventbus.send(address, message, InternalHandler.new(reply_handler))
       else
-        org.vertx.java.core.eventbus.EventBus.instance.send(address, message)
+        @@j_eventbus.send(address, message)
       end
     end
 
@@ -74,9 +76,9 @@ module Vertx
       raise "A message handler must be specified" if !message_hndlr
       internal = InternalHandler.new(message_hndlr)
       if local_only
-        id = org.vertx.java.core.eventbus.EventBus.instance.registerLocalHandler(address, internal)
+        id = @@j_eventbus.registerLocalHandler(address, internal)
       else
-        id = org.vertx.java.core.eventbus.EventBus.instance.registerHandler(address, internal)
+        id = @@j_eventbus.registerHandler(address, internal)
       end
       @@handler_map[id] = internal
       id
@@ -91,9 +93,9 @@ module Vertx
       raise "A message handler must be specified" if !message_hndlr
       internal = InternalHandler.new(message_hndlr)
       if local_only
-        id = org.vertx.java.core.eventbus.EventBus.instance.registerLocalHandler(internal)
+        id = @@j_eventbus.registerLocalHandler(internal)
       else
-        id = org.vertx.java.core.eventbus.EventBus.instance.registerHandler(internal)
+        id = @@j_eventbus.registerHandler(internal)
       end
       @@handler_map[id] = internal
       id
@@ -105,7 +107,7 @@ module Vertx
       raise "A handler_id must be specified" if !handler_id
       handler = @@handler_map.delete(handler_id)
       raise "Cannot find handler for id #{handler_id}" if !handler
-      org.vertx.java.core.eventbus.EventBus.instance.unregisterHandler(handler_id)
+      @@j_eventbus.unregisterHandler(handler_id)
     end
 
     # @private
@@ -170,53 +172,6 @@ module Vertx
       else
         @j_del.reply(reply)
       end
-    end
-
-  end
-
-  # A SockJSBridgeHandler plugs into a SockJS server and translates data received via SockJS into operations
-  # to send messages and register and unregister handlers on the vert.x event bus.
-  #
-  # When used in conjunction with the vert.x client side JavaScript event bus api (vertxbus.js) this effectively
-  # extends the reach of the vert.x event bus from vert.x server side applications to the browser as well. This
-  # enables a truly transparent single event bus where client side JavaScript applications can play on the same
-  # bus as server side application instances and services.
-  #
-  # @author {http://tfox.org Tim Fox}
-  class SockJSBridgeHandler < org.vertx.java.core.eventbus.SockJSBridgeHandler
-    def initialize
-      super
-    end
-
-    # Call this handler - pretend to be a Proc
-    def call(sock)
-      # This is inefficient since we convert to a Ruby SockJSSocket and back again to a Java one
-      handle(sock._to_java_socket)
-    end
-
-    def add_permitted(*permitted)
-      permitted.each do |match|
-        json_str = JSON.generate(match)
-        j_json = org.vertx.java.core.json.JsonObject.new(json_str)
-        addPermitted(j_json);
-      end
-    end
-
-  end
-
-  # A SockJSBridge bridges between SockJS and the event bus.
-  # Bridging allows the event bus to be extended to client side in-browser JavaScript.
-  class SockJSBridge
-
-    # Create a new SockJSBridge
-    # @param http_server [HttpServer] An HTTP server
-    # @param sjs_config [Hash] Config for SockJS server
-    # @param permitted [[Hash]] Array of JSON objects (Hashes) representing permitted matches
-    def initialize(http_server, sjs_config, permitted)
-      @sjs_server = SockJSServer.new(http_server)
-      handler = SockJSBridgeHandler.new
-      handler.add_permitted(*permitted)
-      @sjs_server.install_app(sjs_config, handler);
     end
 
   end

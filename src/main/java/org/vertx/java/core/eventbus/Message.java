@@ -21,7 +21,7 @@ import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 
 /**
- * Represents a message sent on the event bus.
+ * Represents a message on the event bus.
  * <p>
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
@@ -50,7 +50,7 @@ public abstract class Message<T>  {
   }
 
   /**
-   * Reply to this message. If the message was sent specifying a receipt handler, that handler will be
+   * Reply to this message. If the message was sent specifying a reply handler, that handler will be
    * called when it has received a reply. If the message wasn't sent specifying a receipt handler
    * this method does nothing.
    */

@@ -18,19 +18,15 @@ load('vertx.js')
 
 var conns = vertx.getSet('conns')
 
-var server = new vertx.NetServer().connectHandler(function(socket) {
+var server = vertx.createNetServer().connectHandler(function(socket) {
   conns.add(socket.writeHandlerID)
   socket.dataHandler(function(data) {
     var aconns = conns.toArray();
     for (var i = 0; i < aconns.length; i++) {
-      vertx.EventBus.send(aconns[i], data)
+      vertx.eventBus.send(aconns[i], data)
     }
   });
   socket.closedHandler(function() { conns.remove(socket.writeHandlerID) });
 }).listen(1234)
-
-function vertxStop() {
-  @server.close();
-}
 
 

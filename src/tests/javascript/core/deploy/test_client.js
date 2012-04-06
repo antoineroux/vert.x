@@ -19,7 +19,7 @@ load('vertx.js')
 
 var tu = new TestUtils();
 
-var eb = vertx.EventBus;
+var eb = vertx.eventBus;
 
 function testDeploy() {
   eb.registerHandler("test-handler", function MyHandler(message) {
@@ -28,13 +28,12 @@ function testDeploy() {
       tu.testComplete();
     }
   });
-
   vertx.deployVerticle("core/deploy/child.js");
 }
 
 function testUndeploy() {
-
   var id = vertx.deployVerticle("core/deploy/child.js", null, 1, function() {
+    tu.checkContext();
     eb.registerHandler("test-handler", function MyHandler(message) {
       if ("stopped" === message) {
         eb.unregisterHandler("test-handler", MyHandler);
@@ -43,7 +42,6 @@ function testUndeploy() {
     });
     vertx.undeployVerticle(id);
   });
-
 }
 
 tu.registerTests(this);

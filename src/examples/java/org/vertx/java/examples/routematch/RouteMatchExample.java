@@ -17,14 +17,11 @@
 package org.vertx.java.examples.routematch;
 
 import org.vertx.java.core.Handler;
-import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.RouteMatcher;
 import org.vertx.java.deploy.Verticle;
 
-public class RouteMatchExample implements Verticle {
-
-  private HttpServer server;
+public class RouteMatchExample extends Verticle {
 
   public void start() {
 
@@ -32,7 +29,7 @@ public class RouteMatchExample implements Verticle {
 
     rm.get("/details/:user/:id", new Handler<HttpServerRequest>() {
       public void handle(HttpServerRequest req) {
-        req.response.end("User: " + req.getAllParams().get("user") + " ID: " + req.getAllParams().get("id"));
+        req.response.end("User: " + req.params().get("user") + " ID: " + req.params().get("id"));
       }
     });
 
@@ -43,10 +40,6 @@ public class RouteMatchExample implements Verticle {
       }
     });
 
-    server = new HttpServer().requestHandler(rm).listen(8080);
-  }
-
-  public void stop() {
-    server.close();
+    vertx.createHttpServer().requestHandler(rm).listen(8080);
   }
 }

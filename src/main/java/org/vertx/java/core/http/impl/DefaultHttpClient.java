@@ -39,6 +39,7 @@ import org.jboss.netty.handler.ssl.SslHandler;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.buffer.Buffer;
+import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
 import org.vertx.java.core.http.HttpClientResponse;
 import org.vertx.java.core.http.WebSocket;
@@ -51,6 +52,7 @@ import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 import org.vertx.java.core.net.impl.TCPSSLHelper;
+import org.vertx.java.core.net.impl.VertxWorkerPool;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLHandshakeException;
@@ -58,10 +60,11 @@ import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DefaultHttpClient {
+public class DefaultHttpClient implements HttpClient {
 
   private static final Logger log = LoggerFactory.getLogger(HttpClientRequest.class);
 
+  private final VertxInternal vertx;
   private final Context ctx;
   private final TCPSSLHelper tcpHelper = new TCPSSLHelper();
   private ClientBootstrap bootstrap;
@@ -77,11 +80,17 @@ public class DefaultHttpClient {
   };
   private boolean keepAlive = true;
 
-  public DefaultHttpClient() {
-    ctx = VertxInternal.instance.getOrAssignContext();
-    if (VertxInternal.instance.isWorker()) {
+  public DefaultHttpClient(VertxInternal vertx) {
+    this.vertx = vertx;
+    ctx = vertx.getOrAssignContext();
+    if (vertx.isWorker()) {
       throw new IllegalStateException("Cannot be used in a worker application");
     }
+    ctx.addCloseHook(new Runnable() {
+      public void run() {
+        close();
+      }
+    });
   }
 
   public void exceptionHandler(Handler<Exception> handler) {
@@ -135,7 +144,7 @@ public class DefaultHttpClient {
   public void getNow(String uri, Map<String, ? extends Object> headers, Handler<HttpClientResponse> responseHandler) {
     HttpClientRequest req = get(uri, responseHandler);
     if (headers != null) {
-      req.putAllHeaders(headers);
+      req.headers().putAll(headers);
     }
     req.end();
   }
@@ -323,9 +332,17 @@ public class DefaultHttpClient {
   private void internalConnect(final Handler<ClientConnection> connectHandler) {
 
     if (bootstrap == null) {
+      VertxWorkerPool pool = new VertxWorkerPool();
+      EventLoopContext ectx;
+      if (ctx instanceof EventLoopContext) {
+        //It always will be
+        ectx = (EventLoopContext)ctx;
+      } else {
+        ectx = null;
+      }
+      pool.addWorker(ectx.getWorker());
       channelFactory = new NioClientSocketChannelFactory(
-          VertxInternal.instance.getAcceptorPool(),
-          VertxInternal.instance.getWorkerPool());
+          vertx.getAcceptorPool(), 1, pool);
       bootstrap = new ClientBootstrap(channelFactory);
 
       tcpHelper.checkSSL();
@@ -345,14 +362,6 @@ public class DefaultHttpClient {
         }
       });
     }
-    EventLoopContext ectx;
-    if (ctx instanceof EventLoopContext) {
-      //It always will be
-      ectx = (EventLoopContext)ctx;
-    } else {
-      ectx = null;
-    }
-    channelFactory.setWorker(ectx.getWorker());
     bootstrap.setOptions(tcpHelper.generateConnectionOptions());
     ChannelFuture future = bootstrap.connect(new InetSocketAddress(host, port));
     future.addListener(new ChannelFutureListener() {
@@ -392,7 +401,7 @@ public class DefaultHttpClient {
   private void connected(final NioSocketChannel ch, final Handler<ClientConnection> connectHandler) {
     tcpHelper.runOnCorrectThread(ch, new Runnable() {
       public void run() {
-        final ClientConnection conn = new ClientConnection(DefaultHttpClient.this, ch,
+        final ClientConnection conn = new ClientConnection(vertx, DefaultHttpClient.this, ch,
             host + ":" + port, tcpHelper.isSSL(), keepAlive, ctx);
         conn.closedHandler(new SimpleHandler() {
           public void handle() {
@@ -400,7 +409,7 @@ public class DefaultHttpClient {
           }
         });
         connectionMap.put(ch, conn);
-        VertxInternal.instance.setContext(ctx);
+        Context.setContext(ctx);
         connectHandler.handle(conn);
       }
     });
@@ -410,7 +419,7 @@ public class DefaultHttpClient {
     if (t instanceof Exception && exceptionHandler != null) {
       tcpHelper.runOnCorrectThread(ch, new Runnable() {
         public void run() {
-          VertxInternal.instance.setContext(ctx);
+          Context.setContext(ctx);
           exceptionHandler.handle((Exception) t);
         }
       });
@@ -422,7 +431,7 @@ public class DefaultHttpClient {
   private class ClientHandler extends SimpleChannelUpstreamHandler {
 
     @Override
-    public void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e) {
+    public void channelClosed(ChannelHandlerContext chctx, ChannelStateEvent e) {
       final NioSocketChannel ch = (NioSocketChannel) e.getChannel();
       final ClientConnection conn = connectionMap.remove(ch);
       if (conn != null) {
@@ -435,7 +444,7 @@ public class DefaultHttpClient {
     }
 
     @Override
-    public void channelInterestChanged(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+    public void channelInterestChanged(ChannelHandlerContext chctx, ChannelStateEvent e) throws Exception {
       final NioSocketChannel ch = (NioSocketChannel) e.getChannel();
       final ClientConnection conn = connectionMap.get(ch);
       tcpHelper.runOnCorrectThread(ch, new Runnable() {
@@ -446,7 +455,7 @@ public class DefaultHttpClient {
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
+    public void exceptionCaught(ChannelHandlerContext chctx, ExceptionEvent e) {
       final NioSocketChannel ch = (NioSocketChannel) e.getChannel();
       final ClientConnection conn = connectionMap.get(ch);
       final Throwable t = e.getCause();

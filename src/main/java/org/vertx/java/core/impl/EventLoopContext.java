@@ -21,7 +21,7 @@ import org.jboss.netty.channel.socket.nio.NioWorker;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class EventLoopContext extends BaseContext {
+public class EventLoopContext extends Context {
 
   private final NioWorker worker;
 
@@ -30,10 +30,11 @@ public class EventLoopContext extends BaseContext {
   }
 
   public void execute(Runnable task) {
-    worker.scheduleOtherTask(wrapTask(task));
+    worker.executeInIoThread(wrapTask(task), true);
   }
 
   public NioWorker getWorker() {
     return worker;
   }
+
 }

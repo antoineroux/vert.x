@@ -20,6 +20,7 @@ import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.RouteMatcher;
+import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 import org.vertx.java.core.sockjs.AppConfig;
@@ -36,18 +37,18 @@ class JsonPTransport extends BaseTransport {
 
   private static final Logger log = LoggerFactory.getLogger(JsonPTransport.class);
 
-  JsonPTransport(RouteMatcher rm, String basePath, final Map<String, Session> sessions, final AppConfig config,
+  JsonPTransport(VertxInternal vertx, RouteMatcher rm, String basePath, final Map<String, Session> sessions, final AppConfig config,
             final Handler<SockJSSocket> sockHandler) {
-    super(sessions, config);
+    super(vertx, sessions, config);
 
     String jsonpRE = basePath + COMMON_PATH_ELEMENT_RE + "jsonp";
 
     rm.getWithRegEx(jsonpRE, new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
 
-        String callback = req.getAllParams().get("callback");
+        String callback = req.params().get("callback");
         if (callback == null) {
-          callback = req.getAllParams().get("c");
+          callback = req.params().get("c");
           if (callback == null) {
             req.response.statusCode = 500;
             req.response.end("\"callback\" parameter required\n");
@@ -55,7 +56,7 @@ class JsonPTransport extends BaseTransport {
           }
         }
 
-        String sessionID = req.getAllParams().get("param0");
+        String sessionID = req.params().get("param0");
         Session session = getSession(config.getSessionTimeout(), config.getHeartbeatPeriod(), sessionID, sockHandler);
         session.register(new JsonPListener(req, session, callback));
       }
@@ -65,7 +66,7 @@ class JsonPTransport extends BaseTransport {
 
     rm.postWithRegEx(jsonpSendRE, new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
-        String sessionID = req.getAllParams().get("param0");
+        String sessionID = req.params().get("param0");
         final Session session = sessions.get(sessionID);
         if (session != null) {
           handleSend(req, session);
@@ -85,7 +86,7 @@ class JsonPTransport extends BaseTransport {
         String body = buff.toString();
 
         boolean urlEncoded;
-        String ct = req.getHeader("Content-Type");
+        String ct = req.headers().get("Content-Type");
         if (ct.equalsIgnoreCase("application/x-www-form-urlencoded")) {
           urlEncoded = true;
         } else if (ct.equals("text/plain")) {
@@ -115,7 +116,7 @@ class JsonPTransport extends BaseTransport {
           sendInvalidJSON(req.response);
         } else {
           setJSESSIONID(config, req);
-          req.response.putHeader("Content-Type", "text/plain; charset=UTF-8");
+          req.response.headers().put("Content-Type", "text/plain; charset=UTF-8");
           req.response.end("ok");
         }
       }
@@ -142,8 +143,8 @@ class JsonPTransport extends BaseTransport {
 
       if (!headersWritten) {
         req.response.setChunked(true);
-        req.response.putHeader("Content-Type", "application/javascript; charset=UTF-8");
-        req.response.putHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        req.response.headers().put("Content-Type", "application/javascript; charset=UTF-8");
+        req.response.headers().put("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         setJSESSIONID(config, req);
         headersWritten = true;
       }

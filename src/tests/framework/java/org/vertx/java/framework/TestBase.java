@@ -20,9 +20,8 @@ import junit.framework.TestCase;
 import org.junit.Test;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
-import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
-import org.vertx.java.core.impl.Context;
+import org.vertx.java.core.impl.DefaultVertx;
 import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.logging.Logger;
@@ -48,10 +47,10 @@ public class TestBase extends TestCase {
 
   public static final String EVENTS_ADDRESS = "__test_events";
 
-  private VerticleManager verticleManager;
+  protected static VertxInternal vertx = new DefaultVertx();
+  private static VerticleManager verticleManager = new VerticleManager(vertx);
   private BlockingQueue<JsonObject> events = new LinkedBlockingQueue<>();
-  private TestUtils tu = new TestUtils();
-  private Context context;
+  private TestUtils tu = new TestUtils(vertx);
   private volatile Handler<Message<JsonObject>> handler;
   private List<AssertHolder> failedAsserts = new ArrayList<>();
   private List<String> startedApps = new ArrayList<>();
@@ -75,64 +74,51 @@ public class TestBase extends TestCase {
 
   @Override
   protected void setUp() throws Exception {
+    handler = new Handler<Message<JsonObject>>() {
+      public void handle(Message<JsonObject> message) {
+        try {
 
-    verticleManager = VerticleManager.instance;
+          String type = message.body.getString("type");
 
-    final CountDownLatch latch = new CountDownLatch(1);
-
-    context = VertxInternal.instance.startOnEventLoop(new Runnable() {
-      public void run() {
-
-        handler = new Handler<Message<JsonObject>>() {
-          public void handle(Message<JsonObject> message) {
-            try {
-
-              String type = message.body.getString("type");
-
-              switch (type) {
-                case EventFields.TRACE_EVENT:
-                  log.trace(message.body.getString(EventFields.TRACE_MESSAGE_FIELD));
-                  break;
-                case EventFields.EXCEPTION_EVENT:
-                  failedAsserts.add(new AssertHolder(message.body.getString(EventFields.EXCEPTION_MESSAGE_FIELD),
-                      message.body.getString(EventFields.EXCEPTION_STACKTRACE_FIELD)));
-                  break;
-                case EventFields.ASSERT_EVENT:
-                  boolean passed = EventFields.ASSERT_RESULT_VALUE_PASS.equals(message.body.getString(EventFields.ASSERT_RESULT_FIELD));
-                  if (passed) {
-                  } else {
-                    failedAsserts.add(new AssertHolder(message.body.getString(EventFields.ASSERT_MESSAGE_FIELD),
-                        message.body.getString(EventFields.ASSERT_STACKTRACE_FIELD)));
-                  }
-                  break;
-                case EventFields.START_TEST_EVENT:
-                  //Ignore
-                  break;
-                case EventFields.APP_STOPPED_EVENT:
-                  events.add(message.body);
-                  break;
-                case EventFields.APP_READY_EVENT:
-                  events.add(message.body);
-                  break;
-                case EventFields.TEST_COMPLETE_EVENT:
-                  events.add(message.body);
-                  break;
-                default:
-                  throw new IllegalArgumentException("Invalid type: " + type);
+          switch (type) {
+            case EventFields.TRACE_EVENT:
+              log.trace(message.body.getString(EventFields.TRACE_MESSAGE_FIELD));
+              break;
+            case EventFields.EXCEPTION_EVENT:
+              failedAsserts.add(new AssertHolder(message.body.getString(EventFields.EXCEPTION_MESSAGE_FIELD),
+                  message.body.getString(EventFields.EXCEPTION_STACKTRACE_FIELD)));
+              break;
+            case EventFields.ASSERT_EVENT:
+              boolean passed = EventFields.ASSERT_RESULT_VALUE_PASS.equals(message.body.getString(EventFields.ASSERT_RESULT_FIELD));
+              if (passed) {
+              } else {
+                failedAsserts.add(new AssertHolder(message.body.getString(EventFields.ASSERT_MESSAGE_FIELD),
+                    message.body.getString(EventFields.ASSERT_STACKTRACE_FIELD)));
               }
-
-            } catch (Exception e) {
-              log.error("Failed to parse JSON", e);
-            }
+              break;
+            case EventFields.START_TEST_EVENT:
+              //Ignore
+              break;
+            case EventFields.APP_STOPPED_EVENT:
+              events.add(message.body);
+              break;
+            case EventFields.APP_READY_EVENT:
+              events.add(message.body);
+              break;
+            case EventFields.TEST_COMPLETE_EVENT:
+              events.add(message.body);
+              break;
+            default:
+              throw new IllegalArgumentException("Invalid type: " + type);
           }
-        };
 
-        EventBus.instance.registerHandler(EVENTS_ADDRESS, handler);
-
-        latch.countDown();
+        } catch (Exception e) {
+          log.error("Failed to parse JSON", e);
+        }
       }
-    });
-    latch.await(10, TimeUnit.SECONDS);
+    };
+
+    vertx.eventBus().registerHandler(EVENTS_ADDRESS, handler);
   }
 
   @Override
@@ -146,14 +132,7 @@ public class TestBase extends TestCase {
           stopApp(appName);
         }
         events.clear();
-        final CountDownLatch latch = new CountDownLatch(1);
-        context.execute(new Runnable() {
-          public void run() {
-            EventBus.instance.unregisterHandler(EVENTS_ADDRESS, handler);
-            latch.countDown();
-          }
-        });
-        latch.await(10, TimeUnit.SECONDS);
+        vertx.eventBus().unregisterHandler(EVENTS_ADDRESS, handler);
       } catch (Exception e) {
         e.printStackTrace();
         throw e;

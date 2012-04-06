@@ -18,16 +18,13 @@ package org.vertx.java.examples.ssl;
 
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.net.NetServer;
 import org.vertx.java.core.net.NetSocket;
 import org.vertx.java.deploy.Verticle;
 
-public class SSLServer implements Verticle {
-
-  private NetServer server;
+public class SSLServer extends Verticle {
 
   public void start() {
-    new NetServer().connectHandler(new Handler<NetSocket>() {
+    vertx.createNetServer().connectHandler(new Handler<NetSocket>() {
       public void handle(final NetSocket socket) {
         socket.dataHandler(new Handler<Buffer>() {
           public void handle(Buffer buffer) {
@@ -36,9 +33,5 @@ public class SSLServer implements Verticle {
         });
       }
     }).setSSL(true).setKeyStorePath("server-keystore.jks").setKeyStorePassword("wibble").listen(1234);
-  }
-
-  public void stop() {
-    server.close();
   }
 }

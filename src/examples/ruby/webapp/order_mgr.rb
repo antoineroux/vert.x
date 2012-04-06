@@ -4,7 +4,7 @@ require('json')
 @eb = Vertx::EventBus
 address = "demo.orderMgr"
 
-id = @eb.register_handler(address) do |message|
+@eb.register_handler(address) do |message|
   order = message.body
   puts "Received order in order manager #{JSON.generate(order)}"
   sessionID = order['sessionID']
@@ -55,8 +55,4 @@ def send_email(email, items)
   puts "sending email: #{body}"
 
   @eb.send('demo.mailer', msg)
-end
-
-def vertx_stop
-  @eb.unregister_handler(id)
 end

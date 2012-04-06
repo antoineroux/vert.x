@@ -26,17 +26,18 @@ import org.vertx.java.framework.TestUtils;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class CountServer implements Verticle {
+public class CountServer extends Verticle {
 
-  protected TestUtils tu = new TestUtils();
+  protected TestUtils tu;
 
   private HttpServer server;
 
   public void start() {
-    server = new HttpServer().requestHandler(new Handler<HttpServerRequest>() {
+    tu = new TestUtils(vertx);
+    server = vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
         tu.checkContext();
-        req.response.putHeader("count", req.getHeader("count"));
+        req.response.headers().put("count", req.headers().get("count"));
         req.response.end();
       }
     }).listen(8080);

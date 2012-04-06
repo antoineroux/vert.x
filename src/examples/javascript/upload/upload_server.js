@@ -16,14 +16,14 @@
 
 load('vertx.js')
 
-var server = new vertx.HttpServer().requestHandler(function(req) {
+vertx.createHttpServer().requestHandler(function(req) {
   req.pause()
   var filename = vertx.generateUUID() + ".uploaded"
-  vertx.FileSystem.open(filename, function(err, file) {
+  vertx.fileSystem.open(filename, function(err, file) {
     var pump = new vertx.Pump(req, file.getWriteStream())
     req.endHandler(function() {
       file.close(function() {
-        stdout.println("Uploaded " + pump.bytesPumped + " bytes to " + filename);
+        stdout.println("Uploaded " + pump.getBytesPumped() + " bytes to " + filename);
         req.response.end();
       });
     });
@@ -31,7 +31,3 @@ var server = new vertx.HttpServer().requestHandler(function(req) {
     req.resume()
   });
 }).listen(8080)
-
-function vertxStop() {
-  server.close()
-}

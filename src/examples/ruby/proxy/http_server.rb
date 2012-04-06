@@ -16,10 +16,10 @@ require "vertx"
 require "set"
 include Vertx
 
-@server = HttpServer.new.request_handler do |req|
+HttpServer.new.request_handler do |req|
   puts "Got request #{req.uri}"
 
-  req.header_names.each { |header_name| puts "#{header_name} : #{req.header(header_name)}" }
+  req.headers.each { |k, v| puts "#{k} : #{v}" }
 
   req.data_handler { |data| puts "Got data #{data}" }
 
@@ -34,7 +34,3 @@ include Vertx
     req.response.end
   end
 end.listen(8282)
-
-def vertx_stop
-  @server.close
-end

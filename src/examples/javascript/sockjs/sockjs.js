@@ -1,13 +1,13 @@
 load('vertx.js')
 
-var server = new vertx.HttpServer()
+var server = vertx.createHttpServer()
 
 // Serve the index page
 server.requestHandler(function(req) {
   if (req.uri == "/") req.response.sendFile("sockjs/index.html")
 });
 
-var sjsServer = new vertx.SockJSServer(server)
+var sjsServer = new vertx.createSockJSServer(server)
 
 // The handler for the SockJS app - we just echo data back
 sjsServer.installApp({prefix: "/testapp"}, function(sock) {
@@ -17,7 +17,3 @@ sjsServer.installApp({prefix: "/testapp"}, function(sock) {
 });
 
 server.listen(8080)
-
-function vertxStop() {
-  server.close()
-}

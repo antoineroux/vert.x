@@ -26,7 +26,6 @@ import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.handler.stream.ChunkedFile;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
-import org.vertx.java.core.Vertx;
 import org.vertx.java.core.impl.Context;
 import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.logging.Logger;
@@ -47,11 +46,13 @@ public abstract class ConnectionBase {
 
   private static final Logger log = LoggerFactory.getLogger(ConnectionBase.class);
 
-  protected ConnectionBase(Channel channel, Context context) {
+  protected ConnectionBase(VertxInternal vertx, Channel channel, Context context) {
+    this.vertx = vertx;
     this.channel = channel;
     this.context = context;
   }
 
+  protected final VertxInternal vertx;
   protected final Channel channel;
   protected final Context context;
 
@@ -141,7 +142,7 @@ public abstract class ConnectionBase {
     future.addListener(new ChannelFutureListener() {
       public void operationComplete(final ChannelFuture channelFuture) throws Exception {
         setContext();
-        Vertx.instance.runOnLoop(new SimpleHandler() {
+        vertx.runOnLoop(new SimpleHandler() {
           public void handle() {
             if (channelFuture.isSuccess()) {
               doneHandler.handle(null);
@@ -160,11 +161,11 @@ public abstract class ConnectionBase {
   }
 
   protected void setContext() {
-    VertxInternal.instance.setContext(context);
+    Context.setContext(context);
   }
 
   protected void handleHandlerException(Throwable t) {
-    VertxInternal.instance.reportException(t);
+    vertx.reportException(t);
   }
 
   protected boolean isSSL() {

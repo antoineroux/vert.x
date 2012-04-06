@@ -18,9 +18,7 @@ package vertx.tests.core.net;
 
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
-import org.vertx.java.core.Vertx;
 import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.net.NetSocket;
 import org.vertx.java.framework.TestUtils;
 
@@ -43,18 +41,18 @@ public class DrainingServer extends BaseServer {
 
         final Buffer buff = TestUtils.generateRandomBuffer(10000);
         //Send data until the buffer is full
-        Vertx.instance.setPeriodic(0, new Handler<Long>() {
+        vertx.setPeriodic(0, new Handler<Long>() {
           public void handle(Long id) {
             tu.checkContext();
             sock.write(buff);
             if (sock.writeQueueFull()) {
-              Vertx.instance.cancelTimer(id);
+              vertx.cancelTimer(id);
               sock.drainHandler(new SimpleHandler() {
                 public void handle() {
                   tu.checkContext();
                   tu.azzert(!sock.writeQueueFull());
                   // End test after a short delay to give the client some time to read the data
-                  Vertx.instance.setTimer(100, new Handler<Long>() {
+                  vertx.setTimer(100, new Handler<Long>() {
                     public void handle(Long id) {
                       tu.testComplete();
                     }
@@ -63,7 +61,7 @@ public class DrainingServer extends BaseServer {
               });
 
               // Tell the client to resume
-              EventBus.instance.send("client_resume", "");
+              vertx.eventBus().send("client_resume", "");
             }
           }
         });

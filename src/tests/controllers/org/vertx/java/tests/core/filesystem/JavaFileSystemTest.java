@@ -21,10 +21,8 @@ import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.AsyncResultHandler;
 import org.vertx.java.core.Vertx;
 import org.vertx.java.core.file.AsyncFile;
-import org.vertx.java.core.file.FileSystem;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
-import org.vertx.java.core.shareddata.SharedData;
 import org.vertx.java.framework.TestBase;
 import vertx.tests.core.filesystem.TestClient;
 
@@ -46,7 +44,7 @@ public class JavaFileSystemTest extends TestBase {
   @Override
   protected void setUp() throws Exception {
     super.setUp();
-    params = SharedData.instance.getMap("params");
+    params = vertx.sharedData().getMap("params");
     startApp(TestClient.class.getName());
   }
 
@@ -346,9 +344,10 @@ public class JavaFileSystemTest extends TestBase {
   @Test
   public void testExistsNoContext() throws Exception {
     final CountDownLatch latch = new CountDownLatch(1);
-    FileSystem.instance.exists(TMP_DIR + "/foo", new AsyncResultHandler<Boolean>() {
+    final Vertx vertx = Vertx.newVertx();
+    vertx.fileSystem().exists(TMP_DIR + "/foo", new AsyncResultHandler<Boolean>() {
       public void handle(AsyncResult event) {
-        assert(Vertx.instance.isEventLoop());
+        assert(vertx.isEventLoop());
         latch.countDown();
       }
     });
@@ -358,9 +357,10 @@ public class JavaFileSystemTest extends TestBase {
   @Test
   public void testOpenNoContext() throws Exception {
     final CountDownLatch latch = new CountDownLatch(1);
-    FileSystem.instance.open(TMP_DIR + "/foo", new AsyncResultHandler<AsyncFile>() {
+    final Vertx vertx = Vertx.newVertx();
+    vertx.fileSystem().open(TMP_DIR + "/foo", new AsyncResultHandler<AsyncFile>() {
       public void handle(AsyncResult event) {
-        assert (Vertx.instance.isEventLoop());
+        assert (vertx.isEventLoop());
         latch.countDown();
       }
     });

@@ -16,7 +16,7 @@
 
 load('vertx.js')
 
-var client = new vertx.HttpClient().setPort(4443).setSSL(true).setTrustAll(true);
+var client = vertx.createHttpClient().setPort(4443).setSSL(true).setTrustAll(true);
 
 client.getNow('/', function(resp) {
   stdout.println("Got response " + resp.statusCode);
@@ -24,7 +24,3 @@ client.getNow('/', function(resp) {
     stdout.println("Got data " + body);
   })
 });
-
-function vertxStop() {
-  client.close();
-}

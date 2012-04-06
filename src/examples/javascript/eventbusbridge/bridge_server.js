@@ -1,6 +1,6 @@
 load('vertx.js')
 
-var server = new vertx.HttpServer()
+var server = vertx.createHttpServer()
 
 // Serve the static resources
 server.requestHandler(function(req) {
@@ -9,10 +9,6 @@ server.requestHandler(function(req) {
 })
 
 // Create a SockJS bridge which lets everything through (be careful!)
-new vertx.SockJSBridge(server, {prefix: "/eventbus"}, [{}]);
+vertx.createSockJSServer(server).bridge({prefix: "/eventbus"}, [{}]);
 
-server.listen(8080)
-
-function vertxStop() {
-  server.close()
-}
+server.listen(8080);

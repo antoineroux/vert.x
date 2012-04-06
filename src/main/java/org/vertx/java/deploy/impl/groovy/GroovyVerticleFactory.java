@@ -16,8 +16,13 @@
 
 package org.vertx.java.deploy.impl.groovy;
 
+import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyCodeSource;
+import groovy.lang.Script;
+import org.vertx.groovy.core.Vertx;
+import org.vertx.groovy.deploy.Container;
+import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.deploy.Verticle;
 import org.vertx.java.deploy.impl.VerticleFactory;
 import org.vertx.java.deploy.impl.VerticleManager;
@@ -25,10 +30,20 @@ import org.vertx.java.deploy.impl.VerticleManager;
 import java.lang.reflect.Method;
 import java.net.URL;
 
+//import org.vertx.groovy.deploy.Container;
+
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 public class GroovyVerticleFactory implements VerticleFactory {
+
+  private final VerticleManager mgr;
+  private final Vertx gVertx;
+
+  public GroovyVerticleFactory(org.vertx.java.core.Vertx vertx, VerticleManager mgr) {
+    this.mgr = mgr;
+    this.gVertx = new Vertx((VertxInternal)vertx);
+  }
 
   public Verticle createVerticle(String main, ClassLoader cl) throws Exception {
 
@@ -57,7 +72,13 @@ public class GroovyVerticleFactory implements VerticleFactory {
       throw new IllegalStateException("Groovy script must have run() method [whether implicit or not]");
     }
 
-    final Object verticle = clazz.newInstance();
+    final Script verticle = (Script)clazz.newInstance();
+
+    // Inject vertx into the script binding
+    Binding binding = new Binding();
+    binding.setVariable("vertx", gVertx);
+    binding.setVariable("container", new Container(new org.vertx.java.deploy.Container((mgr))));
+    verticle.setBinding(binding);
 
     return new Verticle() {
       public void start() {
@@ -81,7 +102,7 @@ public class GroovyVerticleFactory implements VerticleFactory {
   }
 
   public void reportException(Throwable t) {
-    VerticleManager.instance.getLogger().error("Exception in Groovy verticle", t);
+    mgr.getLogger().error("Exception in Groovy verticle", t);
   }
 }
 

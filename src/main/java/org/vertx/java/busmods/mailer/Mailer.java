@@ -23,7 +23,6 @@ import org.vertx.java.core.json.JsonArray;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
-import org.vertx.java.deploy.Verticle;
 
 import javax.mail.MessagingException;
 import javax.mail.PasswordAuthentication;
@@ -42,7 +41,7 @@ import java.util.Properties;
  * <p>
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class Mailer extends BusModBase implements Verticle, Handler<Message<JsonObject>> {
+public class Mailer extends BusModBase implements Handler<Message<JsonObject>> {
 
   private static final Logger log = LoggerFactory.getLogger(Mailer.class);
 

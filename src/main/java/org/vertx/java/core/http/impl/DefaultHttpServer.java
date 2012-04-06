@@ -48,6 +48,7 @@ import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.handler.stream.ChunkedWriteHandler;
 import org.vertx.java.core.Handler;
+import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.ServerWebSocket;
 import org.vertx.java.core.http.impl.ws.DefaultWebSocketFrame;
@@ -62,9 +63,9 @@ import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 import org.vertx.java.core.net.impl.HandlerHolder;
 import org.vertx.java.core.net.impl.HandlerManager;
-import org.vertx.java.core.net.impl.NetServerWorkerPool;
 import org.vertx.java.core.net.impl.ServerID;
 import org.vertx.java.core.net.impl.TCPSSLHelper;
+import org.vertx.java.core.net.impl.VertxWorkerPool;
 
 import javax.net.ssl.SSLEngine;
 import java.net.InetAddress;
@@ -73,7 +74,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -89,12 +89,11 @@ import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class DefaultHttpServer {
+public class DefaultHttpServer implements HttpServer {
 
   private static final Logger log = LoggerFactory.getLogger(DefaultHttpServer.class);
 
-  private static final Map<ServerID, DefaultHttpServer> servers = new HashMap<>();
-
+  private final VertxInternal vertx;
   private final TCPSSLHelper tcpHelper = new TCPSSLHelper();
   private final Context ctx;
   private Handler<HttpServerRequest> requestHandler;
@@ -102,21 +101,28 @@ public class DefaultHttpServer {
   private Map<Channel, ServerConnection> connectionMap = new ConcurrentHashMap<>();
   private ChannelGroup serverChannelGroup;
   private boolean listening;
+  private String serverOrigin;
 
   private ServerID id;
   private DefaultHttpServer actualServer;
-  private NetServerWorkerPool availableWorkers = new NetServerWorkerPool();
+  private VertxWorkerPool availableWorkers = new VertxWorkerPool();
   private HandlerManager<HttpServerRequest> reqHandlerManager = new HandlerManager<>(availableWorkers);
   private HandlerManager<ServerWebSocket> wsHandlerManager = new HandlerManager<>(availableWorkers);
 
-  public DefaultHttpServer() {
-    ctx = VertxInternal.instance.getOrAssignContext();
-    if (VertxInternal.instance.isWorker()) {
+  public DefaultHttpServer(VertxInternal vertx) {
+    this.vertx = vertx;
+    ctx = vertx.getOrAssignContext();
+    if (vertx.isWorker()) {
       throw new IllegalStateException("Cannot be used in a worker application");
     }
+    ctx.addCloseHook(new Runnable() {
+      public void run() {
+        close();
+      }
+    });
   }
 
-  public DefaultHttpServer requestHandler(Handler<HttpServerRequest> requestHandler) {
+  public HttpServer requestHandler(Handler<HttpServerRequest> requestHandler) {
     this.requestHandler = requestHandler;
     return this;
   }
@@ -125,7 +131,7 @@ public class DefaultHttpServer {
     return requestHandler;
   }
 
-  public DefaultHttpServer websocketHandler(Handler<ServerWebSocket> wsHandler) {
+  public HttpServer websocketHandler(Handler<ServerWebSocket> wsHandler) {
     this.wsHandler = wsHandler;
     return this;
   }
@@ -134,11 +140,11 @@ public class DefaultHttpServer {
     return wsHandler;
   }
 
-  public DefaultHttpServer listen(int port) {
+  public HttpServer listen(int port) {
     return listen(port, "0.0.0.0");
   }
 
-  public DefaultHttpServer listen(int port, String host) {
+  public HttpServer listen(int port, String host) {
     if (requestHandler == null && wsHandler == null) {
       throw new IllegalStateException("Set request or websocket handler first");
     }
@@ -146,14 +152,15 @@ public class DefaultHttpServer {
       throw new IllegalStateException("Listen already called");
     }
 
-    synchronized (servers) {
+    synchronized (vertx.sharedHttpServers()) {
+      serverOrigin = (isSSL() ? "https" : "http") + "://" + host + ":" + port;
       id = new ServerID(port, host);
-      DefaultHttpServer shared = servers.get(id);
+      DefaultHttpServer shared = vertx.sharedHttpServers().get(id);
       if (shared == null) {
         serverChannelGroup = new DefaultChannelGroup("vertx-acceptor-channels");
         ChannelFactory factory =
             new NioServerSocketChannelFactory(
-                VertxInternal.instance.getAcceptorPool(),
+                vertx.getAcceptorPool(),
                 availableWorkers);
         ServerBootstrap bootstrap = new ServerBootstrap(factory);
         bootstrap.setOptions(tcpHelper.generateConnectionOptions());
@@ -199,7 +206,7 @@ public class DefaultHttpServer {
         } catch (UnknownHostException e) {
           log.error("Failed to bind", e);
         }
-        servers.put(id, this);
+        vertx.sharedHttpServers().put(id, this);
         actualServer = this;
       } else {
         // Server already exists with that host/port - we will use that
@@ -221,10 +228,15 @@ public class DefaultHttpServer {
   }
 
   public void close(final Handler<Void> done) {
-    if (!listening) return;
+    if (!listening) {
+      if (done != null) {
+        executeCloseDone(ctx, done);
+      }
+      return;
+    }
     listening = false;
 
-    synchronized (servers) {
+    synchronized (vertx.sharedHttpServers()) {
 
       if (actualServer != null) {
 
@@ -250,65 +262,66 @@ public class DefaultHttpServer {
     }
   }
 
-  public DefaultHttpServer setSSL(boolean ssl) {
+  public HttpServer setSSL(boolean ssl) {
     tcpHelper.setSSL(ssl);
     return this;
   }
 
-  public DefaultHttpServer setKeyStorePath(String path) {
+  public HttpServer setKeyStorePath(String path) {
     tcpHelper.setKeyStorePath(path);
     return this;
   }
 
-  public DefaultHttpServer setKeyStorePassword(String pwd) {
+  public HttpServer setKeyStorePassword(String pwd) {
     tcpHelper.setKeyStorePassword(pwd);
     return this;
   }
 
-  public DefaultHttpServer setTrustStorePath(String path) {
+  public HttpServer setTrustStorePath(String path) {
     tcpHelper.setTrustStorePath(path);
     return this;
   }
 
-  public DefaultHttpServer setTrustStorePassword(String pwd) {
+  public HttpServer setTrustStorePassword(String pwd) {
     tcpHelper.setTrustStorePassword(pwd);
     return this;
   }
 
-  public void setClientAuthRequired(boolean required) {
+  public HttpServer setClientAuthRequired(boolean required) {
     tcpHelper.setClientAuthRequired(required);
+    return this;
   }
 
-  public DefaultHttpServer setTCPNoDelay(boolean tcpNoDelay) {
+  public HttpServer setTCPNoDelay(boolean tcpNoDelay) {
     tcpHelper.setTCPNoDelay(tcpNoDelay);
     return this;
   }
 
-  public DefaultHttpServer setSendBufferSize(int size) {
+  public HttpServer setSendBufferSize(int size) {
     tcpHelper.setSendBufferSize(size);
     return this;
   }
 
-  public DefaultHttpServer setReceiveBufferSize(int size) {
+  public HttpServer setReceiveBufferSize(int size) {
     tcpHelper.setReceiveBufferSize(size);
     return this;
   }
-  public DefaultHttpServer setTCPKeepAlive(boolean keepAlive) {
+  public HttpServer setTCPKeepAlive(boolean keepAlive) {
     tcpHelper.setTCPKeepAlive(keepAlive);
     return this;
   }
 
-  public DefaultHttpServer setReuseAddress(boolean reuse) {
+  public HttpServer setReuseAddress(boolean reuse) {
     tcpHelper.setReuseAddress(reuse);
     return this;
   }
 
-  public DefaultHttpServer setSoLinger(boolean linger) {
+  public HttpServer setSoLinger(boolean linger) {
     tcpHelper.setSoLinger(linger);
     return this;
   }
 
-  public DefaultHttpServer setTrafficClass(int trafficClass) {
+  public HttpServer setTrafficClass(int trafficClass) {
     tcpHelper.setTrafficClass(trafficClass);
     return this;
   }
@@ -363,7 +376,7 @@ public class DefaultHttpServer {
 
   private void actualClose(final Context closeContext, final Handler<Void> done) {
     if (id != null) {
-      servers.remove(id);
+      vertx.sharedHttpServers().remove(id);
     }
 
     for (ServerConnection conn : connectionMap.values()) {
@@ -373,7 +386,7 @@ public class DefaultHttpServer {
     // We need to reset it since sock.internalClose() above can call into the close handlers of sockets on the same thread
     // which can cause context id for the thread to change!
 
-    VertxInternal.instance.setContext(closeContext);
+    Context.setContext(closeContext);
 
     ChannelGroupFuture fut = serverChannelGroup.close();
     if (done != null) {
@@ -468,13 +481,13 @@ public class DefaultHttpServer {
               throw new IllegalArgumentException("Invalid uri " + request.getUri()); //Should never happen
             }
 
-            final ServerConnection wsConn = new ServerConnection(ch, wsHandler.context);
+            final ServerConnection wsConn = new ServerConnection(vertx, ch, wsHandler.context);
             wsConn.wsHandler(wsHandler.handler);
             Runnable connectRunnable = new Runnable() {
               public void run() {
                 connectionMap.put(ch, wsConn);
                 try {
-                  HttpResponse resp = shake.generateResponse(request);
+                  HttpResponse resp = shake.generateResponse(request, serverOrigin);
                   ChannelPipeline p = ch.getPipeline();
                   p.replace("decoder", "wsdecoder", shake.getDecoder());
                   ch.write(resp);
@@ -484,7 +497,7 @@ public class DefaultHttpServer {
                 }
               }
             };
-            DefaultWebSocket ws = new DefaultWebSocket(theURI.getPath(), wsConn, connectRunnable);
+            DefaultWebSocket ws = new DefaultWebSocket(vertx, theURI.getPath(), wsConn, connectRunnable);
             wsConn.handleWebsocketConnect(ws);
             if (ws.rejected) {
               if (firstHandler == null) {
@@ -501,7 +514,7 @@ public class DefaultHttpServer {
           if (conn == null) {
             HandlerHolder<HttpServerRequest> reqHandler = reqHandlerManager.chooseHandler(ch.getWorker());
             if (reqHandler != null) {
-              conn = new ServerConnection(ch, reqHandler.context);
+              conn = new ServerConnection(vertx, ch, reqHandler.context);
               conn.requestHandler(reqHandler.handler);
               connectionMap.put(ch, conn);
               conn.handleMessage(msg);

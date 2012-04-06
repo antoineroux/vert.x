@@ -21,7 +21,6 @@ import org.vertx.java.core.AsyncResultHandler;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.file.AsyncFile;
-import org.vertx.java.core.file.FileSystem;
 import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
 import org.vertx.java.core.http.HttpClientResponse;
@@ -31,13 +30,11 @@ import org.vertx.java.deploy.Verticle;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-public class UploadClient implements Verticle {
-
-  private HttpClient client;
+public class UploadClient extends Verticle {
 
   public void start() throws Exception {
 
-    client = new HttpClient().setPort(8080).setHost("localhost");
+    HttpClient client = vertx.createHttpClient().setPort(8080).setHost("localhost");
 
     final HttpClientRequest req = client.put("/some-url", new Handler<HttpClientResponse>() {
       public void handle(HttpClientResponse response) {
@@ -48,15 +45,15 @@ public class UploadClient implements Verticle {
     String filename = "upload/upload.txt";
 
     // For a non-chunked upload you need to specify size of upload up-front
-    req.putHeader("Content-Length", Files.size(Paths.get(filename)));
+    req.headers().put("Content-Length", Files.size(Paths.get(filename)));
 
     // For a chunked upload you don't need to specify size, just do:
     // req.setChunked(true);
 
-    FileSystem.instance.open(filename, new AsyncResultHandler<AsyncFile>() {
+    vertx.fileSystem().open(filename, new AsyncResultHandler<AsyncFile>() {
       public void handle(AsyncResult<AsyncFile> ar) {
         final AsyncFile file = ar.result;
-        Pump pump = new Pump(file.getReadStream(), req);
+        Pump pump = Pump.createPump(file.getReadStream(), req);
         pump.start();
 
         file.getReadStream().endHandler(new SimpleHandler() {
@@ -80,10 +77,5 @@ public class UploadClient implements Verticle {
         e.printStackTrace();
       }
     });
-
-  }
-
-  public void stop() {
-    client.close();
   }
 }

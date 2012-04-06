@@ -20,16 +20,15 @@ import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.net.NetServer;
 import org.vertx.java.core.net.NetSocket;
-import org.vertx.java.core.shareddata.SharedData;
 import org.vertx.java.deploy.Verticle;
 import org.vertx.java.framework.TestUtils;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public abstract class BaseServer implements Verticle {
+public abstract class BaseServer extends Verticle {
 
-  protected TestUtils tu = new TestUtils();
+  protected TestUtils tu;
 
   private NetServer server;
 
@@ -40,9 +39,10 @@ public abstract class BaseServer implements Verticle {
   }
 
   public void start() {
-    server = new NetServer();
+    tu = new TestUtils(vertx);
+    server = vertx.createNetServer();
     server.connectHandler(getConnectHandler());
-    Integer port = SharedData.instance.<String, Integer>getMap("params").get("listenport");
+    Integer port = vertx.sharedData().<String, Integer>getMap("params").get("listenport");
     int p = port == null ? 1234: port;
     server.listen(p);
 

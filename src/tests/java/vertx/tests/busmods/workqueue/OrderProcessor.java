@@ -28,16 +28,18 @@ import java.util.UUID;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class OrderProcessor implements Verticle, Handler<Message<JsonObject>> {
+public class OrderProcessor extends Verticle implements Handler<Message<JsonObject>> {
 
-  private TestUtils tu = new TestUtils();
+  private TestUtils tu;
 
-  private EventBus eb = EventBus.instance;
+  private EventBus eb;
 
   private String address = UUID.randomUUID().toString();
 
   @Override
   public void start() throws Exception {
+    eb = vertx.eventBus();
+    tu = new TestUtils(vertx);
     eb.registerHandler(address, this);
     JsonObject msg = new JsonObject().putString("processor", address);
     eb.send("test.orderQueue.register", msg);

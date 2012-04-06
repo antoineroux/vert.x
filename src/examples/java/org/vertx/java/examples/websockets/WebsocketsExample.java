@@ -18,17 +18,14 @@ package org.vertx.java.examples.websockets;
 
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.ServerWebSocket;
 import org.vertx.java.deploy.Verticle;
 
-public class WebsocketsExample implements Verticle {
-
-  private HttpServer server;
+public class WebsocketsExample extends Verticle {
 
   public void start() {
-    server = new HttpServer().websocketHandler(new Handler<ServerWebSocket>() {
+    vertx.createHttpServer().websocketHandler(new Handler<ServerWebSocket>() {
       public void handle(final ServerWebSocket ws) {
         if (ws.path.equals("/myapp")) {
           ws.dataHandler(new Handler<Buffer>() {
@@ -45,9 +42,5 @@ public class WebsocketsExample implements Verticle {
         if (req.path.equals("/")) req.response.sendFile("websockets/ws.html"); // Serve the html
       }
     }).listen(8080);
-  }
-
-  public void stop() {
-    server.close();
   }
 }

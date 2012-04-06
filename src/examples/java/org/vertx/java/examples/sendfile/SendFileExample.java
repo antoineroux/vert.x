@@ -17,18 +17,15 @@
 package org.vertx.java.examples.sendfile;
 
 import org.vertx.java.core.Handler;
-import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.deploy.Verticle;
 
-public class SendFileExample implements Verticle {
+public class SendFileExample extends Verticle {
 
   private static final String webroot = "sendfile/";
 
-  private HttpServer server;
-
   public void start() {
-    server = new HttpServer().requestHandler(new Handler<HttpServerRequest>() {
+    vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
       public void handle(HttpServerRequest req) {
         if (req.path.equals("/")) {
           req.response.sendFile(webroot + "index.html");
@@ -38,9 +35,5 @@ public class SendFileExample implements Verticle {
         }
       }
     }).listen(8080);
-  }
-
-  public void stop() {
-    server.close();
   }
 }

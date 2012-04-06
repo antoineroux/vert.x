@@ -19,27 +19,25 @@ package vertx.tests.busmods.worker;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
-import org.vertx.java.core.http.HttpClient;
-import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.json.JsonObject;
-import org.vertx.java.core.net.NetClient;
-import org.vertx.java.core.net.NetServer;
 import org.vertx.java.deploy.Verticle;
 import org.vertx.java.framework.TestUtils;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class TestWorker implements Verticle, Handler<Message<JsonObject>> {
+public class TestWorker extends Verticle implements Handler<Message<JsonObject>> {
 
-  private TestUtils tu = new TestUtils();
+  private TestUtils tu;
 
-  private EventBus eb = EventBus.instance;
+  private EventBus eb;
 
   private String address = "testWorker";
 
   @Override
   public void start() throws Exception {
+    eb = vertx.eventBus();
+    tu = new TestUtils(vertx);
     eb.registerHandler(address, this);
     tu.appReady();
   }
@@ -59,28 +57,28 @@ public class TestWorker implements Verticle, Handler<Message<JsonObject>> {
       // Trying to create any network clients or servers should fail - workers can only use the event bus
 
       try {
-        new NetServer();
+        vertx.createNetServer();
         tu.azzert(false, "Should throw exception");
       } catch (IllegalStateException e) {
         // OK
       }
 
        try {
-        new NetClient();
+        vertx.createNetClient();
         tu.azzert(false, "Should throw exception");
       } catch (IllegalStateException e) {
         // OK
       }
 
        try {
-        new HttpServer();
+        vertx.createHttpServer();
         tu.azzert(false, "Should throw exception");
       } catch (IllegalStateException e) {
         // OK
       }
 
        try {
-        new HttpClient();
+        vertx.createHttpClient();
         tu.azzert(false, "Should throw exception");
       } catch (IllegalStateException e) {
         // OK

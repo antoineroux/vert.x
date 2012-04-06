@@ -21,7 +21,6 @@ import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.net.NetServer;
 import org.vertx.java.core.net.NetSocket;
-import org.vertx.java.core.shareddata.SharedData;
 import org.vertx.java.deploy.Verticle;
 import org.vertx.java.framework.TestUtils;
 import vertx.tests.core.http.TLSTestParams;
@@ -29,16 +28,17 @@ import vertx.tests.core.http.TLSTestParams;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class TLSServer implements Verticle {
+public class TLSServer extends Verticle {
 
-  protected TestUtils tu = new TestUtils();
+  protected TestUtils tu;
 
   private NetServer server;
 
   public void start() {
-    server = new NetServer();
+    tu = new TestUtils(vertx);
+    server = vertx.createNetServer();
 
-    TLSTestParams params = TLSTestParams.deserialize(SharedData.instance.<String, byte[]>getMap("TLSTest").get("params"));
+    TLSTestParams params = TLSTestParams.deserialize(vertx.sharedData().<String, byte[]>getMap("TLSTest").get("params"));
 
     server.setSSL(true);
 

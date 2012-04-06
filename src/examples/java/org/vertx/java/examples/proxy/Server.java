@@ -19,21 +19,18 @@ package org.vertx.java.examples.proxy;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.deploy.Verticle;
 
-public class Server implements Verticle {
-
-  private HttpServer server;
+public class Server extends Verticle {
 
   public void start() {
-    server = new HttpServer().requestHandler(new Handler<HttpServerRequest>() {
+    vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
         System.out.println("Got request: " + req.uri);
         System.out.println("Headers are: ");
-        for (String key : req.getHeaderNames()) {
-          System.out.println(key + ":" + req.getHeader(key));
+        for (String key : req.headers().keySet()) {
+          System.out.println(key + ":" + req.headers().get(key));
         }
         req.dataHandler(new Handler<Buffer>() {
           public void handle(Buffer data) {
@@ -52,9 +49,5 @@ public class Server implements Verticle {
         });
       }
     }).listen(8282);
-  }
-
-  public void stop() {
-    server.close();
   }
 }

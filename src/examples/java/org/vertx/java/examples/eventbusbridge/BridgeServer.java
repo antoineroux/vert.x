@@ -1,11 +1,11 @@
 package org.vertx.java.examples.eventbusbridge;
 
 import org.vertx.java.core.Handler;
-import org.vertx.java.core.eventbus.SockJSBridge;
 import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.sockjs.AppConfig;
+import org.vertx.java.core.sockjs.SockJSServer;
 import org.vertx.java.deploy.Verticle;
 
 import java.util.ArrayList;
@@ -14,12 +14,10 @@ import java.util.List;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class BridgeServer implements Verticle {
-
-  HttpServer server;
+public class BridgeServer extends Verticle {
 
   public void start() throws Exception {
-    server = new HttpServer();
+    HttpServer server = vertx.createHttpServer();
 
     // Also serve the static resources. In real life this would probably be done by a CDN
     server.requestHandler(new Handler<HttpServerRequest>() {
@@ -31,12 +29,9 @@ public class BridgeServer implements Verticle {
 
     List<JsonObject> permitted = new ArrayList<>();
     permitted.add(new JsonObject()); // Let everything through
-    new SockJSBridge(server, new AppConfig().setPrefix("/eventbus"), permitted);
+    SockJSServer sockJSServer = vertx.createSockJSServer(server);
+    sockJSServer.bridge(new AppConfig().setPrefix("/eventbus"), permitted);
 
     server.listen(8080);
-  }
-
-  public void stop() throws Exception {
-    server.close();
   }
 }

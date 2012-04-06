@@ -16,7 +16,7 @@
 
 load('vertx.js')
 
-var eb = vertx.EventBus;
+var eb = vertx.eventBus;
 
 var address = 'example.address'
 
@@ -28,7 +28,4 @@ function sendMessage() {
   var msg = "some-message-" + count++;
   eb.send(address, msg);
   stdout.println("sent message " + msg)
-}
-
-function vertxStop() {
 }

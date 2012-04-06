@@ -26,12 +26,12 @@ import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
-import org.vertx.java.core.Vertx;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.ServerWebSocket;
 import org.vertx.java.core.http.impl.ws.WebSocketFrame;
 import org.vertx.java.core.impl.Context;
+import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 
@@ -62,8 +62,8 @@ class ServerConnection extends AbstractConnection {
   private boolean sentCheck;
   private final Queue<Object> pending = new LinkedList<>();
 
-  ServerConnection(Channel channel, Context context) {
-    super(channel, context);
+  ServerConnection(VertxInternal vertx, Channel channel, Context context) {
+    super(vertx, channel, context);
   }
 
   @Override
@@ -303,7 +303,7 @@ class ServerConnection extends AbstractConnection {
     // Check if there are more pending messages in the queue that can be processed next time around
     if (!sentCheck && !pending.isEmpty() && !paused && (pendingResponse == null || pending.peek() instanceof HttpChunk)) {
       sentCheck = true;
-      Vertx.instance.runOnLoop(new SimpleHandler() {
+      vertx.runOnLoop(new SimpleHandler() {
         public void handle() {
           sentCheck = false;
           if (!paused) {

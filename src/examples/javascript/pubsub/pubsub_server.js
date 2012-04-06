@@ -16,17 +16,18 @@
 
 load('vertx.js')
 
-var server = new vertx.NetServer().connectHandler(function(socket) {
-  var parser = new vertx.DelimitedParser("\n", function(line) {
+vertx.createNetServer().connectHandler(function(socket) {
+  var parser = new vertx.createDelimitedParser("\n", function(line) {
     line = line.toString().replace(/\s+$/,""); // rtrim
     if (line.indexOf("subscribe,") == 0) {
       var topicName = line.split(",", 2)[1]
       stdout.println("subscribing to " + topicName);
       var topic = vertx.getSet(topicName);
+      topic.add(socket.writeHandlerID)
     } else if (line.indexOf("unsubscribe,") == 0) {
-      var topicNname = line.split(",", 2)[1]
+      var topicName = line.split(",", 2)[1]
       stdout.println("unsubscribing from " + topicName);
-      var topic = vertx.getSet(topiName)
+      var topic = vertx.getSet(topicName)
       topic.remove(socket.writeHandlerID)
       if (topic.isEmpty()) {
         vertx.removeSet(topicName)
@@ -37,13 +38,9 @@ var server = new vertx.NetServer().connectHandler(function(socket) {
       var topic = vertx.getSet(sp[1])
       var tarr = topic.toArray();
       for (var i = 0; i < tarr.length; i++) {
-        vertx.EventBus.send(tarr[i], new vertx.Buffer(sp[2]));
+        vertx.eventBus.send(tarr[i], new vertx.Buffer(sp[2]));
       }
     }
   });
   socket.dataHandler(parser)
 }).listen(1234)
-
-function vertxStop() {
-  server.close()
-}

@@ -19,7 +19,6 @@ package vertx.tests.core.http;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
@@ -29,14 +28,15 @@ import org.vertx.java.framework.TestUtils;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class PausingServer implements Verticle {
+public class PausingServer extends Verticle {
 
-  protected TestUtils tu = new TestUtils();
+  protected TestUtils tu;
 
   private HttpServer server;
 
   public void start() {
-    server = new HttpServer().requestHandler(new Handler<HttpServerRequest>() {
+    tu = new TestUtils(vertx);
+    server = vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
         tu.checkContext();
         req.response.setChunked(true);
@@ -47,11 +47,11 @@ public class PausingServer implements Verticle {
             req.resume();
           }
         };
-        EventBus.instance.registerHandler("server_resume", resumeHandler);
+        vertx.eventBus().registerHandler("server_resume", resumeHandler);
         req.endHandler(new SimpleHandler() {
           public void handle() {
             tu.checkContext();
-            EventBus.instance.unregisterHandler("server_resume", resumeHandler);
+            vertx.eventBus().unregisterHandler("server_resume", resumeHandler);
           }
         });
         req.dataHandler(new Handler<Buffer>() {

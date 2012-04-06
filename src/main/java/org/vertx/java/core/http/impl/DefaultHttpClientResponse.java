@@ -26,7 +26,6 @@ import org.vertx.java.core.logging.impl.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  *
@@ -44,7 +43,6 @@ public class DefaultHttpClientResponse extends HttpClientResponse {
   private HttpChunkTrailer trailer;
   // Cache these for performance
   private Map<String, String> headers;
-  // Cache these for performance
   private Map<String, String> trailers;
 
   DefaultHttpClientResponse(ClientConnection conn, HttpResponse response) {
@@ -53,26 +51,14 @@ public class DefaultHttpClientResponse extends HttpClientResponse {
     this.response = response;
   }
 
-  public String getHeader(String key) {
-    return response.getHeader(key);
-  }
-
-  public Set<String> getHeaderNames() {
-    return response.getHeaderNames();
-  }
-
-  public String getTrailer(String key) {
-    return trailer.getHeader(key);
-  }
-
-  public Map<String, String> getAllHeaders() {
+  public Map<String, String> headers() {
     if (headers == null) {
       headers = HeaderUtils.simplifyHeaders(response.getHeaders());
     }
     return headers;
   }
 
-  public Map<String, String> getAllTrailers() {
+  public Map<String, String> trailers() {
     if (trailers == null) {
       if (trailer == null) {
         trailers = new HashMap<>();
@@ -81,10 +67,6 @@ public class DefaultHttpClientResponse extends HttpClientResponse {
       }
     }
     return trailers;
-  }
-
-  public Set<String> getTrailerNames() {
-    return trailer.getHeaderNames();
   }
 
   public void dataHandler(Handler<Buffer> dataHandler) {

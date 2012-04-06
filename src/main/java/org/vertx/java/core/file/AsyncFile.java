@@ -40,22 +40,22 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.HashSet;
 
 /**
- * Represents a file on the file-system which can be read from, or written to asynchronously.
- * <p>
+ * Represents a file on the file-system which can be read from, or written to asynchronously.<p>
  * Methods also exist to get a {@link org.vertx.java.core.streams.ReadStream} or a
  * {@link org.vertx.java.core.streams.WriteStream} on the file. This allows the data to be pumped to and from
- * other streams, e.g. an {@link org.vertx.java.core.http.HttpClientRequest} instance, using the {@link org.vertx.java.core.streams.Pump} class
- * <p>
- * Instances of this class are not thread-safe
- * <p>
+ * other streams, e.g. an {@link org.vertx.java.core.http.HttpClientRequest} instance,
+ * using the {@link org.vertx.java.core.streams.Pump} class<p>
+ * Instances of this class are not thread-safe<p>
+ *
  * @author <a href="http://tfox.org">Tim Fox</a>
-  */
+ */
 public class AsyncFile {
 
   private static final Logger log = LoggerFactory.getLogger(AsyncFile.class);
 
   public static final int BUFFER_SIZE = 8192;
 
+  private final VertxInternal vertx;
   private final AsynchronousFileChannel ch;
   private final Context context;
   private boolean closed;
@@ -64,11 +64,12 @@ public class AsyncFile {
   private Runnable closedDeferred;
   private long writesOutstanding;
 
-  AsyncFile(final String path, String perms, final boolean read, final boolean write, final boolean createNew,
+  AsyncFile(final VertxInternal vertx, final String path, String perms, final boolean read, final boolean write, final boolean createNew,
             final boolean flush, final Context context) throws Exception {
     if (!read && !write) {
       throw new FileSystemException("Cannot open file for neither reading nor writing");
     }
+    this.vertx = vertx;
     Path file = Paths.get(path);
     HashSet<OpenOption> options = new HashSet<>();
     if (read) options.add(StandardOpenOption.READ);
@@ -77,22 +78,22 @@ public class AsyncFile {
     if (flush) options.add(StandardOpenOption.DSYNC);
     if (perms != null) {
       FileAttribute<?> attrs = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(perms));
-      ch = AsynchronousFileChannel.open(file, options, VertxInternal.instance.getBackgroundPool(), attrs);
+      ch = AsynchronousFileChannel.open(file, options, vertx.getBackgroundPool(), attrs);
     } else {
-      ch = AsynchronousFileChannel.open(file, options, VertxInternal.instance.getBackgroundPool());
+      ch = AsynchronousFileChannel.open(file, options, vertx.getBackgroundPool());
     }
     this.context = context;
   }
 
   /**
-   * Close the file. The actual close happens asychronously.
+   * Close the file. The actual close happens asynchronously.
    */
   public void close() {
     closeInternal(null);
   }
 
   /**
-   * Close the file. The actual close happens asychronously.
+   * Close the file. The actual close happens asynchronously.
    * The handler will be called when the close is complete, or an error occurs.
    */
   public void close(AsyncResultHandler handler) {
@@ -105,7 +106,7 @@ public class AsyncFile {
    * of the file, the file will be enlarged to encompass it.<p>
    * When multiple writes are invoked on the same file
    * there are no guarantees as to order in which those writes actually occur.<p>
-   * The handler will be called when the close is complete, or an error occurs.
+   * The handler will be called when the write is complete, or if an error occurs.
    */
   public void write(Buffer buffer, int position, AsyncResultHandler<Void> handler) {
     check();
@@ -115,12 +116,10 @@ public class AsyncFile {
 
   /**
    * Reads {@code length} bytes of data from the file at position {@code position} in the file, asynchronously.
-   * The read data will be written into the
-   * specified {@code Buffer buffer} at position {@code offset}.<p>
-   * {@code position + length} must lie within the confines of the file.<p>
-   * When multiple reads are invoked on the same file
-   * there are no guarantees as to order in which those reads actually occur.<p>
-   * The handler will be called when the close is complete, or an error occurs.
+   * The read data will be written into the specified {@code Buffer buffer} at position {@code offset}.<p>
+   * The index {@code position + length} must lie within the confines of the file.<p>
+   * When multiple reads are invoked on the same file there are no guarantees as to order in which those reads actually occur.<p>
+   * The handler will be called when the close is complete, or if an error occurs.
    */
   public void read(Buffer buffer, int offset, int position, int length, AsyncResultHandler<Buffer> handler) {
     check();
@@ -129,7 +128,7 @@ public class AsyncFile {
   }
 
   /**
-   * Return a {@code WriteStream} instance operating on this {@code AsyncFile}.
+   * Return a {@link WriteStream} instance operating on this {@code AsyncFile}.
    */
   public WriteStream getWriteStream() {
     check();
@@ -319,8 +318,7 @@ public class AsyncFile {
   }
 
   /**
-   * Same as {@link #flush} but the handler will be called when the flush is complete
-   * or an error occurs
+   * Same as {@link #flush} but the handler will be called when the flush is complete or if an error occurs
    * @param handler
    */
   public void flush(AsyncResultHandler handler) {
@@ -330,7 +328,7 @@ public class AsyncFile {
   private void doFlush(AsyncResultHandler handler) {
     checkClosed();
     checkContext();
-    new BlockingAction<Void>(handler) {
+    new BlockingAction<Void>(vertx, handler) {
       public Void action() throws Exception {
         ch.force(false);
         return null;
@@ -422,7 +420,7 @@ public class AsyncFile {
             }
           });
         } else {
-          VertxInternal.instance.reportException(exc);
+          vertx.reportException(exc);
         }
       }
     });
@@ -440,9 +438,9 @@ public class AsyncFile {
   }
 
   private void checkContext() {
-    if (!VertxInternal.instance.getContext().equals(context)) {
+    if (!Context.getContext().equals(context)) {
       throw new IllegalStateException("AsyncFile must only be used in the context that created it, expected: "
-          + context + " actual " + VertxInternal.instance.getContext());
+          + context + " actual " + Context.getContext());
     }
   }
 

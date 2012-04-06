@@ -17,9 +17,8 @@
 package vertx.tests.core.eventbus;
 
 import org.vertx.java.core.SimpleHandler;
-import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.impl.DefaultEventBus;
-import org.vertx.java.core.shareddata.SharedData;
+import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.framework.TestClientBase;
 import org.vertx.java.tests.core.eventbus.Counter;
 
@@ -37,13 +36,13 @@ public abstract class EventBusAppBase extends TestClientBase {
   public void start() {
     super.start();
 
-    data = SharedData.instance.getMap("data");
+    data = vertx.sharedData().getMap("data");
 
     if (isLocal()) {
-      eb = (DefaultEventBus)EventBus.instance;
+      eb = (DefaultEventBus)vertx.eventBus();
     } else {
       int port = Counter.portCounter.getAndIncrement();
-      eb = new DefaultEventBus(port, "localhost");
+      eb = new DefaultEventBus((VertxInternal)vertx, port, "localhost");
     }
 
     tu.appReady();

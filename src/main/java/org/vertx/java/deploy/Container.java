@@ -24,19 +24,21 @@ import org.vertx.java.deploy.impl.VerticleManager;
 import java.net.URL;
 
 /**
- * This class represents the container in which a verticle runs
- * <p>
+ * This class represents the container in which a verticle runs.<p>
+ * An instance of this class will be created by the system and made available to
+ * a running Verticle.
  * It contains methods to programmatically deploy other verticles, undeploy
  * verticles, get the configuration for a verticle and get the logger for a
- * verticle
+ * verticle.<p>
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 public class Container {
 
-  public static final Container instance = new Container();
-
-  private Container() {
+  private final VerticleManager mgr;
+  
+  public Container(final VerticleManager vertx) {
+    this.mgr = vertx;    
   }
 
   /**
@@ -88,8 +90,8 @@ public class Container {
    * @return Unique deployment id
    */
   public String deployWorkerVerticle(String main, JsonObject config, int instances, Handler<Void> doneHandler) {
-    URL[] currURLs = VerticleManager.instance.getDeploymentURLs();
-    return VerticleManager.instance.deploy(true, null, main, config, currURLs, instances, doneHandler);
+    URL[] currURLs = mgr.getDeploymentURLs();
+    return mgr.deploy(true, null, main, config, currURLs, instances, doneHandler);
   }
 
   /**
@@ -121,6 +123,13 @@ public class Container {
     return deployVerticle(main, config, 1);
   }
 
+  /**
+   * Deploy a verticle programmatically
+   * @param main The main of the verticle
+   * @param config JSON config to provide to the verticle
+   * @param instances The number of instances to deploy (defaults to 1)
+   * @return Unique deployment id
+   */
   public String deployVerticle(String main, JsonObject config, int instances) {
     return deployVerticle(main, config, instances, null);
   }
@@ -134,8 +143,8 @@ public class Container {
    * @return Unique deployment id
    */
   public String deployVerticle(String main, JsonObject config, int instances, Handler<Void> doneHandler) {
-    URL[] currURLs = VerticleManager.instance.getDeploymentURLs();
-    return VerticleManager.instance.deploy(false, null, main, config, currURLs, instances, doneHandler);
+    URL[] currURLs = mgr.getDeploymentURLs();
+    return mgr.deploy(false, null, main, config, currURLs, instances, doneHandler);
   }
 
   /**
@@ -152,7 +161,7 @@ public class Container {
    * @param doneHandler The handler will be called when undeployment is complete
    */
   public void undeployVerticle(String deploymentID, Handler<Void> doneHandler) {
-    VerticleManager.instance.undeploy(deploymentID, doneHandler);
+    mgr.undeploy(deploymentID, doneHandler);
   }
 
   /**
@@ -160,7 +169,7 @@ public class Container {
    * @return a JSON object representing the configuration
    */
   public JsonObject getConfig() {
-    return VerticleManager.instance.getConfig();
+    return mgr.getConfig();
   }
 
   /**
@@ -168,7 +177,7 @@ public class Container {
    * @return The logger
    */
   public Logger getLogger() {
-    return VerticleManager.instance.getLogger();
+    return mgr.getLogger();
   }
 
 }

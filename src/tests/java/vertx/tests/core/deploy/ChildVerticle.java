@@ -16,23 +16,20 @@
 
 package vertx.tests.core.deploy;
 
-import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.deploy.Verticle;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class ChildVerticle implements Verticle {
-
-  private EventBus eb = EventBus.instance;
+public class ChildVerticle extends Verticle {
 
   @Override
   public void start() throws Exception {
-    eb.send("test-handler", "started");
+    vertx.eventBus().send("test-handler", "started");
   }
 
   @Override
   public void stop() throws Exception {
-    eb.send("test-handler", "stopped");
+    vertx.eventBus().send("test-handler", "stopped");
   }
 }

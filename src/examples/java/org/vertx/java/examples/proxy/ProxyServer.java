@@ -22,27 +22,23 @@ import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
 import org.vertx.java.core.http.HttpClientResponse;
-import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.deploy.Verticle;
 
-public class ProxyServer implements Verticle {
-
-  private HttpClient client;
-  private HttpServer server;
+public class ProxyServer extends Verticle {
 
   public void start()  {
 
-    client = new HttpClient().setHost("localhost").setPort(8282);
+    final HttpClient client = vertx.createHttpClient().setHost("localhost").setPort(8282);
 
-    server = new HttpServer().requestHandler(new Handler<HttpServerRequest>() {
+    vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
         System.out.println("Proxying request: " + req.uri);
         final HttpClientRequest cReq = client.request(req.method, req.uri, new Handler<HttpClientResponse>() {
           public void handle(HttpClientResponse cRes) {
             System.out.println("Proxying response: " + cRes.statusCode);
             req.response.statusCode = cRes.statusCode;
-            req.response.putAllHeaders(cRes.getAllHeaders());
+            req.response.headers().putAll(cRes.headers());
             req.response.setChunked(true);
             cRes.dataHandler(new Handler<Buffer>() {
               public void handle(Buffer data) {
@@ -57,7 +53,7 @@ public class ProxyServer implements Verticle {
             });
           }
         });
-        cReq.putAllHeaders(req.getAllHeaders());
+        cReq.headers().putAll(req.headers());
         cReq.setChunked(true);
         req.dataHandler(new Handler<Buffer>() {
           public void handle(Buffer data) {
@@ -72,10 +68,5 @@ public class ProxyServer implements Verticle {
         });
       }
     }).listen(8080);
-  }
-
-  public void stop() {
-    client.close();
-    server.close();
   }
 }

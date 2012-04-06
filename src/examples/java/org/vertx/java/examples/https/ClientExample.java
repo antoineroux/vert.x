@@ -18,17 +18,13 @@ package org.vertx.java.examples.https;
 
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientResponse;
 import org.vertx.java.deploy.Verticle;
 
-public class ClientExample implements Verticle {
-
-  private HttpClient client;
+public class ClientExample extends Verticle {
 
   public void start() {
-    client = new HttpClient();
-    client.setSSL(true).setTrustAll(true).setPort(4443).setHost("localhost").getNow("/", new Handler<HttpClientResponse>() {
+    vertx.createHttpClient().setSSL(true).setTrustAll(true).setPort(4443).setHost("localhost").getNow("/", new Handler<HttpClientResponse>() {
       public void handle(HttpClientResponse response) {
         response.dataHandler(new Handler<Buffer>() {
           public void handle(Buffer data) {
@@ -37,9 +33,5 @@ public class ClientExample implements Verticle {
         });
       }
     });
-  }
-
-  public void stop() {
-    client.close();
   }
 }

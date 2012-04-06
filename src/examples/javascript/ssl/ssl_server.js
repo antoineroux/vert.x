@@ -16,16 +16,10 @@
 
 load('vertx.js')
 
-var server = new vertx.NetServer().setSSL(true).
+var server = vertx.createNetServer().setSSL(true).
                                    setKeyStorePath('server-keystore.jks').
                                    setKeyStorePassword('wibble');
 
 server.connectHandler(function(sock) {
   new vertx.Pump(sock, sock).start();
-})
-
-server.listen(1234, 'localhost');
-
-function vertxStop() {
-  server.close();
-}
+}).listen(1234, 'localhost');

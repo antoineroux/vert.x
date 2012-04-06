@@ -18,18 +18,14 @@ package org.vertx.java.examples.proxy;
 
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.http.HttpClient;
 import org.vertx.java.core.http.HttpClientRequest;
 import org.vertx.java.core.http.HttpClientResponse;
 import org.vertx.java.deploy.Verticle;
 
-public class Client implements Verticle {
-
-  private HttpClient client;
+public class Client extends Verticle {
 
   public void start() {
-    client = new HttpClient();
-    HttpClientRequest req = client.setPort(8080).setHost("localhost").put("/some-url", new Handler<HttpClientResponse>() {
+    HttpClientRequest req = vertx.createHttpClient().setPort(8080).setHost("localhost").put("/some-url", new Handler<HttpClientResponse>() {
       public void handle(HttpClientResponse response) {
         response.dataHandler(new Handler<Buffer>() {
           public void handle(Buffer data) {
@@ -44,9 +40,5 @@ public class Client implements Verticle {
       req.write("client-data-chunk-" + i);
     }
     req.end();
-  }
-
-  public void stop() {
-    client.close();
   }
 }

@@ -16,9 +16,12 @@
 
 package org.vertx.java.core.impl;
 
-import org.jboss.netty.channel.socket.nio.NioWorkerPool;
 import org.vertx.java.core.Vertx;
+import org.vertx.java.core.http.impl.DefaultHttpServer;
+import org.vertx.java.core.net.impl.DefaultNetServer;
+import org.vertx.java.core.net.impl.ServerID;
 
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 
@@ -29,25 +32,22 @@ import java.util.concurrent.ExecutorService;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public interface VertxInternal extends Vertx {
+public abstract class VertxInternal extends Vertx {
 
-  static VertxInternal instance = (VertxInternal) Vertx.instance;
+  public abstract Executor getAcceptorPool();
 
-  NioWorkerPool getWorkerPool();
+  public abstract ExecutorService getBackgroundPool();
 
-  Executor getAcceptorPool();
+  public abstract Context startOnEventLoop(Runnable runnable);
 
-  Context getContext();
+  public abstract Context startInBackground(Runnable runnable);
 
-  void setContext(Context context);
+  public abstract Context getOrAssignContext();
 
-  ExecutorService getBackgroundPool();
+  public abstract void reportException(Throwable t);
 
-  Context startOnEventLoop(Runnable runnable);
+  public abstract Map<ServerID, DefaultHttpServer> sharedHttpServers();
 
-  Context startInBackground(Runnable runnable);
+  public abstract Map<ServerID, DefaultNetServer> sharedNetServers();
 
-  Context getOrAssignContext();
-
-  void reportException(Throwable t);
 }

@@ -17,11 +17,10 @@
 package org.vertx.java.examples.httpperf;
 
 import org.vertx.java.core.Handler;
-import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.deploy.Verticle;
 
-public class RateCounter implements Verticle, Handler<Message<Integer>> {
+public class RateCounter extends Verticle implements Handler<Message<Integer>> {
 
   private long start;
 
@@ -40,12 +39,6 @@ public class RateCounter implements Verticle, Handler<Message<Integer>> {
   }
 
   public void start() {
-    EventBus.instance.registerHandler("rate-counter", this);
+    vertx.eventBus().registerHandler("rate-counter", this);
   }
-
-  public void stop() {
-    EventBus.instance.unregisterHandler("rate-counter", this);
-  }
-
-
 }

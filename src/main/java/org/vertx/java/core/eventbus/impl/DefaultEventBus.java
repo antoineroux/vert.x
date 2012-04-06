@@ -20,7 +20,6 @@ import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.AsyncResultHandler;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
-import org.vertx.java.core.Vertx;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
@@ -35,10 +34,9 @@ import org.vertx.java.core.net.NetSocket;
 import org.vertx.java.core.net.impl.ServerID;
 import org.vertx.java.core.parsetools.RecordParser;
 
-import java.util.ArrayList;
+import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
@@ -50,51 +48,46 @@ import java.util.concurrent.ConcurrentMap;
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class DefaultEventBus extends EventBus {
+public class DefaultEventBus implements EventBus {
 
   private static final Logger log = LoggerFactory.getLogger(DefaultEventBus.class);
 
-  private static final String DEFAULT_CLUSTER_PROVIDER_CLASS_NAME =
+  private static final String CLUSTER_PROVIDER_CLASS_NAME =
       "org.vertx.java.core.eventbus.impl.hazelcast.HazelcastClusterManager";
   private static final Buffer PONG = new Buffer(new byte[] { (byte)1 });
   private static final long PING_INTERVAL = 5000;
   private static final long PING_REPLY_INTERVAL = 5000;
-  private static final int DEFAULT_CLUSTER_PORT = 2550;
+  public static final int DEFAULT_CLUSTER_PORT = 2550;
+  private final VertxInternal vertx;
   private final ServerID serverID;
-  private final NetServer server;
-  private final SubsMap subs;
+  private NetServer server;
+  private SubsMap subs;
   private final ConcurrentMap<ServerID, ConnectionHolder> connections = new ConcurrentHashMap<>();
   private final ConcurrentMap<String, Map<HandlerHolder, String>> handlers = new ConcurrentHashMap<>();
   private final Map<String, ServerID> replyAddressCache = new ConcurrentHashMap<>();
   private final Map<String, HandlerInfo> handlersByID = new ConcurrentHashMap<>();
 
-  /**
-   * Create a non clustered event bus
-   */
-  public DefaultEventBus() {
+  public DefaultEventBus(VertxInternal vertx) {
     // Just some dummy server ID
+    this.vertx = vertx;
     this.serverID = new ServerID(DEFAULT_CLUSTER_PORT, "localhost");
     this.server = null;
     this.subs = null;
   }
 
-  public DefaultEventBus(String clusterHost) {
-    this(DEFAULT_CLUSTER_PORT, clusterHost, null);
+  public DefaultEventBus(VertxInternal vertx, String hostname) {
+    this(vertx, DEFAULT_CLUSTER_PORT, hostname);
   }
 
-  public DefaultEventBus(int clusterPort, String clusterHost) {
-    this(clusterPort, clusterHost, null);
-  }
-
-  public DefaultEventBus(int clusterPort, String clusterHost, String clusterProviderClassName) {
-    if (clusterProviderClassName == null) {
-      clusterProviderClassName = DEFAULT_CLUSTER_PROVIDER_CLASS_NAME;
-    }
+  public DefaultEventBus(VertxInternal vertx, int port, String hostname) {
+    this.vertx = vertx;
+    this.serverID = new ServerID(port, hostname);
     try {
-      final Class clusterProvider = Class.forName(clusterProviderClassName);
-      final ServerID clusterServerID = new ServerID(clusterPort, clusterHost);
-      ClusterManager mgr = (ClusterManager) clusterProvider.newInstance();
-      this.serverID = clusterServerID;
+      final Class clusterProvider = Class.forName(CLUSTER_PROVIDER_CLASS_NAME);
+      Class[] classTypes = new Class[] {VertxInternal.class};
+      Constructor constructor = clusterProvider.getDeclaredConstructor(classTypes);
+      constructor.newInstance(vertx);
+      ClusterManager mgr = (ClusterManager)constructor.newInstance(vertx);
       subs = mgr.getSubsMap("subs");
       this.server = setServer();
     } catch (Exception e) {
@@ -201,7 +194,7 @@ public class DefaultEventBus extends EventBus {
 
   public void unregisterHandler(String address, Handler<? extends Message> handler,
                                 AsyncResultHandler<Void> completionHandler) {
-    Context context = VertxInternal.instance.getOrAssignContext();
+    Context context = vertx.getOrAssignContext();
     Map<HandlerHolder, String> map = handlers.get(address);
     if (map != null) {
       String handlerID = map.remove(new HandlerHolder(handler, false, context));
@@ -267,7 +260,7 @@ public class DefaultEventBus extends EventBus {
   }
 
   private NetServer setServer() {
-    return new NetServer().connectHandler(new Handler<NetSocket>() {
+    return vertx.createNetServer().connectHandler(new Handler<NetSocket>() {
       public void handle(final NetSocket socket) {
         final RecordParser parser = RecordParser.newFixed(4, null);
         Handler<Buffer> handler = new Handler<Buffer>() {
@@ -305,7 +298,7 @@ public class DefaultEventBus extends EventBus {
 
   private void send(final BaseMessage message, final Handler replyHandler) {
     try {
-    Context context = VertxInternal.instance.getOrAssignContext();
+    Context context = vertx.getOrAssignContext();
     try {
       message.sender = serverID;
       if (replyHandler != null) {
@@ -345,7 +338,7 @@ public class DefaultEventBus extends EventBus {
       // Reset the context id - send can cause messages to be delivered in different contexts so the context id
       // of the current thread can change
       if (context != null) {
-        VertxInternal.instance.setContext(context);
+        Context.setContext(context);
       }
     }
     } catch (ConcurrentModificationException e) {
@@ -360,8 +353,8 @@ public class DefaultEventBus extends EventBus {
   private String registerHandler(String address, Handler<? extends Message> handler,
                                  AsyncResultHandler<Void> completionHandler,
                                  boolean replyHandler, boolean localOnly) {
-    Context context = VertxInternal.instance.getOrAssignContext();
-    String id = UUID.randomUUID().toString();
+    Context context = vertx.getOrAssignContext();
+    final String id = UUID.randomUUID().toString();
     if (address == null) {
       address = id;
     }
@@ -397,6 +390,12 @@ public class DefaultEventBus extends EventBus {
         callCompletionHandler(completionHandler);
       }
     }
+    context.addCloseHook(new Runnable() {
+      public void run() {
+        // Unregister handlers automatically when undeployed
+        unregisterHandler(id);
+      }
+    });
     return id;
   }
 
@@ -407,10 +406,10 @@ public class DefaultEventBus extends EventBus {
 
   private void cleanupConnection(String address, ServerID serverID, ConnectionHolder holder) {
     if (holder.timeoutID != -1) {
-      Vertx.instance.cancelTimer(holder.timeoutID);
+      vertx.cancelTimer(holder.timeoutID);
     }
     if (holder.pingTimeoutID != -1) {
-      Vertx.instance.cancelTimer(holder.pingTimeoutID);
+      vertx.cancelTimer(holder.pingTimeoutID);
     }
     try {
       holder.socket.close();
@@ -438,7 +437,7 @@ public class DefaultEventBus extends EventBus {
     // tricky
     ConnectionHolder holder = connections.get(serverID);
     if (holder == null) {
-      NetClient client = new NetClient();
+      NetClient client = vertx.createNetClient();
       holder = new ConnectionHolder(client);
       ConnectionHolder prevHolder = connections.putIfAbsent(serverID, holder);
       if (prevHolder != null) {
@@ -453,10 +452,10 @@ public class DefaultEventBus extends EventBus {
   }
 
   private void schedulePing(final String address, final ConnectionHolder holder) {
-    holder.pingTimeoutID = Vertx.instance.setTimer(PING_INTERVAL, new Handler<Long>() {
+    holder.pingTimeoutID = vertx.setTimer(PING_INTERVAL, new Handler<Long>() {
       public void handle(Long ignore) {
         // If we don't get a pong back in time we close the connection
-        holder.timeoutID = Vertx.instance.setTimer(PING_REPLY_INTERVAL, new Handler<Long>() {
+        holder.timeoutID = vertx.setTimer(PING_REPLY_INTERVAL, new Handler<Long>() {
           public void handle(Long timerID) {
             // Didn't get pong in time - consider connection dead
             log.debug("No pong from server " + serverID + " - will consider it dead, timerID: " + timerID + " holder " + holder);
@@ -586,7 +585,7 @@ public class DefaultEventBus extends EventBus {
       socket.dataHandler(new Handler<Buffer>() {
         public void handle(Buffer data) {
           // Got a pong back
-          Vertx.instance.cancelTimer(timeoutID);
+          vertx.cancelTimer(timeoutID);
           schedulePing(address, ConnectionHolder.this);
         }
       });

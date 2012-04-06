@@ -20,7 +20,6 @@ import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
-import org.vertx.java.core.shareddata.SharedData;
 import org.vertx.java.deploy.Verticle;
 import org.vertx.java.framework.TestUtils;
 
@@ -29,22 +28,23 @@ import java.util.UUID;
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class InstanceCheckServer implements Verticle {
+public class InstanceCheckServer extends Verticle {
 
-  protected TestUtils tu = new TestUtils();
+  protected TestUtils tu;
 
   private HttpServer server;
 
   private final String id = UUID.randomUUID().toString();
 
   public void start() {
-    server = new HttpServer().requestHandler(new Handler<HttpServerRequest>() {
+    tu = new TestUtils(vertx);
+    server = vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
         tu.checkContext();
 
          //We add the object id of the server to the set
-        SharedData.instance.getSet("instances").add(id);
-        SharedData.instance.getSet("requests").add(UUID.randomUUID().toString());
+        vertx.sharedData().getSet("instances").add(id);
+        vertx.sharedData().getSet("requests").add(UUID.randomUUID().toString());
 
         req.response.end();
 

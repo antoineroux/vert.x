@@ -19,7 +19,6 @@ package vertx.tests.core.net;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.net.NetSocket;
 
@@ -43,11 +42,11 @@ public class PausingServer extends BaseServer {
             sock.resume();
           }
         };
-        EventBus.instance.registerHandler("server_resume", resumeHandler);
+        vertx.eventBus().registerHandler("server_resume", resumeHandler);
         sock.closedHandler(new SimpleHandler() {
           public void handle() {
             tu.checkContext();
-            EventBus.instance.unregisterHandler("server_resume", resumeHandler);
+            vertx.eventBus().unregisterHandler("server_resume", resumeHandler);
           }
         });
         sock.dataHandler(new Handler<Buffer>() {

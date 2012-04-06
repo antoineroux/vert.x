@@ -20,6 +20,7 @@ import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.RouteMatcher;
+import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 import org.vertx.java.core.sockjs.AppConfig;
@@ -34,15 +35,15 @@ class EventSourceTransport extends BaseTransport {
 
   private static final Logger log = LoggerFactory.getLogger(EventSourceTransport.class);
 
-  EventSourceTransport(RouteMatcher rm, String basePath, Map<String, Session> sessions, final AppConfig config,
+  EventSourceTransport(VertxInternal vertx,RouteMatcher rm, String basePath, Map<String, Session> sessions, final AppConfig config,
             final Handler<SockJSSocket> sockHandler) {
-    super(sessions, config);
+    super(vertx, sessions, config);
 
     String eventSourceRE = basePath + COMMON_PATH_ELEMENT_RE + "eventsource";
 
     rm.getWithRegEx(eventSourceRE, new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
-        String sessionID = req.getAllParams().get("param0");
+        String sessionID = req.params().get("param0");
         Session session = getSession(config.getSessionTimeout(), config.getHeartbeatPeriod(), sessionID, sockHandler);
         session.register(new EventSourceListener(config.getMaxBytesStreaming(), req, session));
       }
@@ -68,8 +69,8 @@ class EventSourceTransport extends BaseTransport {
 
     public void sendFrame(String body) {
       if (!headersWritten) {
-        req.response.putHeader("Content-Type", "text/event-stream; charset=UTF-8");
-        req.response.putHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        req.response.headers().put("Content-Type", "text/event-stream; charset=UTF-8");
+        req.response.headers().put("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         setJSESSIONID(config, req);
         req.response.setChunked(true);
         req.response.write("\r\n");

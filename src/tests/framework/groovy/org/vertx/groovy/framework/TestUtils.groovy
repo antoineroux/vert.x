@@ -15,13 +15,22 @@
  */
 package org.vertx.groovy.framework
 
+import org.vertx.groovy.core.Vertx
+import org.vertx.groovy.core.buffer.Buffer
 import org.vertx.java.core.Handler
 
 class TestUtils extends org.vertx.java.framework.TestUtils {
+
+  TestUtils(Vertx vertx) {
+    super(vertx.toJavaVertx())
+  }
 
   // Provide a version of register which takes a closure
   def register(testName, handler) {
     super.register(testName, handler as Handler)
   }
 
+  static Buffer generateRandomBuffer(int length) {
+    new Buffer(org.vertx.java.framework.TestUtils.generateRandomBuffer(length, false, (byte) 0))
+  }
 }

@@ -21,23 +21,23 @@ import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
-import org.vertx.java.core.shareddata.SharedData;
 import org.vertx.java.deploy.Verticle;
 import org.vertx.java.framework.TestUtils;
 
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public class TLSServer implements Verticle {
+public class TLSServer extends Verticle {
 
-  protected TestUtils tu = new TestUtils();
+  protected TestUtils tu;
 
   private HttpServer server;
 
   public void start() {
-    TLSTestParams params = TLSTestParams.deserialize(SharedData.instance.<String, byte[]>getMap("TLSTest").get("params"));
+    tu = new TestUtils(vertx);
+    TLSTestParams params = TLSTestParams.deserialize(vertx.sharedData().<String, byte[]>getMap("TLSTest").get("params"));
 
-    server = new HttpServer();
+    server = vertx.createHttpServer();
 
     server.setSSL(true);
 

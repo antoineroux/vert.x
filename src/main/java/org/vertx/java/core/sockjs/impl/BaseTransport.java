@@ -21,6 +21,7 @@ import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.HttpServerResponse;
 import org.vertx.java.core.impl.StringEscapeUtils;
+import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.json.JsonArray;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.logging.Logger;
@@ -40,6 +41,7 @@ class BaseTransport {
 
   private static final Logger log = LoggerFactory.getLogger(BaseTransport.class);
 
+  protected final VertxInternal vertx;
   protected final Map<String, Session> sessions;
   protected AppConfig config;
 
@@ -47,7 +49,8 @@ class BaseTransport {
 
   private static final long RAND_OFFSET = 2l << 30;
 
-  public BaseTransport(Map<String, Session> sessions, AppConfig config) {
+  public BaseTransport(VertxInternal vertx, Map<String, Session> sessions, AppConfig config) {
+    this.vertx = vertx;
     this.sessions = sessions;
     this.config = config;
   }
@@ -56,7 +59,7 @@ class BaseTransport {
                                Handler<SockJSSocket> sockHandler) {
     Session session = sessions.get(sessionID);
     if (session == null) {
-      session = new Session(sessionID, timeout, heartbeatPeriod, sockHandler);
+      session = new Session(vertx, sessionID, timeout, heartbeatPeriod, sockHandler);
       final Session theSession = session;
       session.setTimeoutHandler(new SimpleHandler() {
         public void handle() {
@@ -101,7 +104,7 @@ class BaseTransport {
   }
 
   static void setJSESSIONID(AppConfig config, HttpServerRequest req) {
-    String cookies = req.getHeader("Cookie");
+    String cookies = req.headers().get("Cookie");
     if (config.isInsertJSESSIONID()) {
       //Preserve existing JSESSIONID, if any
       if (cookies != null) {
@@ -121,25 +124,25 @@ class BaseTransport {
       if (cookies == null) {
         cookies = "JSESSIONID=dummy; path=/";
       }
-      req.response.putHeader("Set-Cookie", cookies);
+      req.response.headers().put("Set-Cookie", cookies);
     }
   }
 
   static void setCORS(HttpServerRequest req) {
-    String origin = req.getHeader("Origin");
+    String origin = req.headers().get("Origin");
     if (origin == null) {
       origin = "*";
     }
-    req.response.putHeader("Access-Control-Allow-Origin", origin);
-    req.response.putHeader("Access-Control-Allow-Credentials", "true");
-    req.response.putHeader("Access-Control-Allow-Headers", "Content-Type");
+    req.response.headers().put("Access-Control-Allow-Origin", origin);
+    req.response.headers().put("Access-Control-Allow-Credentials", "true");
+    req.response.headers().put("Access-Control-Allow-Headers", "Content-Type");
   }
 
   static Handler<HttpServerRequest> createInfoHandler(final AppConfig config) {
     return new Handler<HttpServerRequest>() {
       public void handle(HttpServerRequest req) {
-        req.response.putHeader("Content-Type", "application/json; charset=UTF-8");
-        req.response.putHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        req.response.headers().put("Content-Type", "application/json; charset=UTF-8");
+        req.response.headers().put("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         JsonObject json = new JsonObject();
         json.putBoolean("websocket", !config.getDisabledTransports().contains(Transport.WEBSOCKETS));
         json.putBoolean("cookie_needed", config.isInsertJSESSIONID());
@@ -156,13 +159,13 @@ class BaseTransport {
   static Handler<HttpServerRequest> createCORSOptionsHandler(final AppConfig config, final String methods) {
     return new Handler<HttpServerRequest>() {
       public void handle(HttpServerRequest req) {
-        req.response.putHeader("Cache-Control", "public,max-age=31536000");
+        req.response.headers().put("Cache-Control", "public,max-age=31536000");
         long oneYearSeconds = 365 * 24 * 60 * 60;
         long oneYearms = oneYearSeconds * 1000;
         String expires = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz").format(new Date(System.currentTimeMillis() + oneYearms));
-        req.response.putHeader("Expires", expires);
-        req.response.putHeader("Access-Control-Allow-Methods", methods);
-        req.response.putHeader("Access-Control-Max-Age", String.valueOf(oneYearSeconds));
+        req.response.headers().put("Expires", expires);
+        req.response.headers().put("Access-Control-Allow-Methods", methods);
+        req.response.headers().put("Access-Control-Max-Age", String.valueOf(oneYearSeconds));
         setCORS(req);
         setJSESSIONID(config, req);
         req.response.statusCode = 204;

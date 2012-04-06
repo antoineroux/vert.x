@@ -1,6 +1,6 @@
 load('vertx.js');
 
-var server = new vertx.HttpServer()
+var server = vertx.createHttpServer()
     .setSSL(true)
     .setKeyStorePath('server-keystore.jks')
     .setKeyStorePassword('wibble');
@@ -17,7 +17,7 @@ server.requestHandler(function(req) {
   }
 })
 
-new vertx.SockJSBridge(server, {prefix : '/eventbus'},
+vertx.createSockJSServer(server).bridge({prefix : '/eventbus'},
   [
     // Allow calls to get static album data from the persistor
     {
@@ -39,7 +39,3 @@ new vertx.SockJSBridge(server, {prefix : '/eventbus'},
 );
 
 server.listen(8080, 'localhost');
-
-function vertxStop() {
-  server.close();
-}

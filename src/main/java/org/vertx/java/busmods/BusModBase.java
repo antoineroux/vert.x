@@ -16,38 +16,40 @@
 
 package org.vertx.java.busmods;
 
-import org.vertx.java.core.Vertx;
 import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
-import org.vertx.java.deploy.Container;
+import org.vertx.java.deploy.Verticle;
 
 /**
  * Base helper class for Java busmods
  *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
-public abstract class BusModBase {
+public abstract class BusModBase extends Verticle {
 
   private static final Logger log = LoggerFactory.getLogger(BusModBase.class);
 
-  protected final EventBus eb = EventBus.instance;
+  protected EventBus eb;
   protected JsonObject config;
   protected String address;
+  protected boolean worker;
 
   protected BusModBase(boolean worker) {
-    if (worker && Vertx.instance.isEventLoop()) {
-      throw new IllegalStateException("Worker busmod can only be created inside a worker application (user -worker when deploying");
-    }
+    this.worker = worker;
   }
 
   /**
    * Start the busmod
    */
-  protected void start() {
-    config = Container.instance.getConfig();
+  public void start() {
+    if (worker && vertx.isEventLoop()) {
+      throw new IllegalStateException(this.getClass().getName() + " must be started as a worker verticle");
+    }
+    eb = vertx.eventBus();
+    config = container.getConfig();
     address = config.getString("address");
     if (address == null) {
       throw new IllegalArgumentException("address must be specified in config for busmod");

@@ -15,25 +15,26 @@
 require "vertx"
 include Vertx
 
-@client = HttpClient.new
-@client.port = 8282
-@client.host = "localhost"
+client = HttpClient.new
+client.port = 8282
+client.host = "localhost"
 
-@server = HttpServer.new.request_handler do |req|
+HttpServer.new.request_handler do |req|
   puts "Proxying request: #{req.uri}"
 
-  c_req = @client.request(req.method, req.uri) do |c_res|
+  c_req = client.request(req.method, req.uri) do |c_res|
     puts "Proxying response: #{c_res.status_code}"
+    req.response.chunked = true
     req.response.status_code = c_res.status_code
-    req.response.put_headers(c_res.headers)
+    req.response.headers.update(c_res.headers)
     c_res.data_handler do |data|
       puts "Proxying response body: #{data}"
       req.response.write_buffer(data);
     end
     c_res.end_handler { req.response.end }
   end
-
-  c_req.put_headers(req.headers)
+  c_req.chunked = true
+  c_req.headers.update(req.headers)
   req.data_handler do |data|
     puts "Proxying request body #{data}"
     c_req.write_buffer(data)
@@ -41,8 +42,3 @@ include Vertx
   req.end_handler { c_req.end }
 
 end.listen(8080)
-
-def vertx_stop
-  @client.close
-  @server.close
-end

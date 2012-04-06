@@ -16,27 +16,23 @@
 
 package org.vertx.java.core.http;
 
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.http.impl.HttpReadStreamBase;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 
 import java.util.Map;
-import java.util.Set;
 
 /**
- * Represents  a server-side HTTP request.
- * <p>
+ * Represents a server-side HTTP request.<p>
  * An instance of this class is created for each request that is handled by the server
- * andis passed to the user via the {@link org.vertx.java.core.Handler} instance
- * registered with the {@link HttpServer} using the method
- * {@link HttpServer#requestHandler(org.vertx.java.core.Handler)}.
- * <p>Each instance of this class is associated with a correspondin
- * {@link HttpServerResponse} instance via the {@code response} field.
- * <p>
- * Instances of this class are not thread-safe
- * <p>
+ * and is passed to the user via the {@link org.vertx.java.core.Handler} instance
+ * registered with the {@link HttpServer} using the method {@link HttpServer#requestHandler(org.vertx.java.core.Handler)}.<p>
+ * Each instance of this class is associated with a corresponding {@link HttpServerResponse} instance via
+ * the {@code response} field.<p>
+ * It implements {@link org.vertx.java.core.streams.ReadStream} so it can be used with
+ * {@link org.vertx.java.core.streams.Pump} to pump data with flow control.<p>
+ * Instances of this class are not thread-safe<p>
+ *
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
 public abstract class HttpServerRequest extends HttpReadStreamBase {
@@ -52,7 +48,7 @@ public abstract class HttpServerRequest extends HttpReadStreamBase {
   }
 
   /**
-   * The HTTP method for the request. One of GET, PUT, POST, DELETE, TRACE, CONNECT, OPTIONS, HEAD
+   * The HTTP method for the request. One of GET, PUT, POST, DELETE, TRACE, CONNECT, OPTIONS or HEAD
    */
   public final String method;
 
@@ -79,59 +75,14 @@ public abstract class HttpServerRequest extends HttpReadStreamBase {
   public final HttpServerResponse response;
 
   /**
-   * Return the HTTP request header with the name {@code key} from this request, or null if there is no such header.
+   * A map of all headers in the request, If the request contains multiple headers with the same key, the values
+   * will be concatenated together into a single header with the same key value, with each value separated by a comma,
+   * as specified <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2">here</a>.
    */
-  public abstract String getHeader(String key);
-
-  /**
-   * Return a set of all the HTTP header names in this request
-   */
-  public abstract Set<String> getHeaderNames();
-
-  /**
-   * Returns a map of all headers in the request, If the request contains multiple headers with the same key, the values
-   * will be concatenated together into a single header with the same key value, with each value separated by a comma, as specified
-   * <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2">here</a>.
-   */
-  public abstract Map<String, String> getAllHeaders();
+  public abstract Map<String, String> headers();
 
   /**
    * Returns a map of all the parameters in the request
    */
-  public abstract Map<String, String> getAllParams();
-
-  /**
-   * Specify a data handler for the request. If the request has a body, the {@code dataHandler} will get called when some of the request body has
-   * been read from the wire. If the request is chunked, then it will be called once for each HTTP chunk, otherwise it
-   * will be called one or more times until the full request body has been received.<p>
-   * If the request has no body it will not be called at all.
-   *
-   * @param dataHandler
-   */
-  public abstract void dataHandler(Handler<Buffer> dataHandler);
-
-  /**
-   * Specify an exception handler for the request. The {@code exceptionHandler} is called if an exception occurs
-   * when handling the request.
-   */
-  public abstract void exceptionHandler(Handler<Exception> handler);
-
-  /**
-   * Pause the request. Once the request has been paused, the system will stop reading any more chunks of the request
-   * from the wire until it is resumed.<p>
-   * Pause is often used in conjunction with a {@link org.vertx.java.core.streams.Pump} to pump data between streams and implement flow control.
-   */
-  public abstract void pause();
-
-  /**
-   * Resume a paused request. The request will resume receiving chunks of the request body from the wire.<p>
-   * Resume is often used in conjunction with a {@link org.vertx.java.core.streams.Pump} to pump data between streams and implement flow control.
-   */
-  public abstract void resume();
-
-  /**
-   * Specify an end handler for the request. The {@code endHandler} is called once the entire request has been read.
-   */
-  public abstract void endHandler(Handler<Void> handler);
-
+  public abstract Map<String, String> params();
 }

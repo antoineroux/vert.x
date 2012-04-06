@@ -20,6 +20,7 @@ import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.http.RouteMatcher;
+import org.vertx.java.core.impl.VertxInternal;
 import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.logging.impl.LoggerFactory;
 import org.vertx.java.core.sockjs.AppConfig;
@@ -61,17 +62,17 @@ class HtmlFileTransport extends BaseTransport {
     HTML_FILE_TEMPLATE = sb.toString();
   }
 
-  HtmlFileTransport(RouteMatcher rm, String basePath, Map<String, Session> sessions, final AppConfig config,
+  HtmlFileTransport(VertxInternal vertx, RouteMatcher rm, String basePath, Map<String, Session> sessions, final AppConfig config,
             final Handler<SockJSSocket> sockHandler) {
-    super(sessions, config);
+    super(vertx, sessions, config);
     String htmlFileRE = basePath + COMMON_PATH_ELEMENT_RE + "htmlfile";
 
     rm.getWithRegEx(htmlFileRE, new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
 
-        String callback = req.getAllParams().get("callback");
+        String callback = req.params().get("callback");
         if (callback == null) {
-          callback = req.getAllParams().get("c");
+          callback = req.params().get("c");
           if (callback == null) {
             req.response.statusCode = 500;
             req.response.end("\"callback\" parameter required\n");
@@ -79,7 +80,7 @@ class HtmlFileTransport extends BaseTransport {
           }
         }
 
-        String sessionID = req.getAllParams().get("param0");
+        String sessionID = req.params().get("param0");
         Session session = getSession(config.getSessionTimeout(), config.getHeartbeatPeriod(), sessionID, sockHandler);
         session.register(new HtmlFileListener(config.getMaxBytesStreaming(), req, callback, session));
       }
@@ -107,8 +108,8 @@ class HtmlFileTransport extends BaseTransport {
     public void sendFrame(String body) {
       if (!headersWritten) {
         String htmlFile = HTML_FILE_TEMPLATE.replace("{{ callback }}", callback);
-        req.response.putHeader("Content-Type", "text/html; charset=UTF-8");
-        req.response.putHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        req.response.headers().put("Content-Type", "text/html; charset=UTF-8");
+        req.response.headers().put("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         req.response.setChunked(true);
         setJSESSIONID(config, req);
         req.response.write(htmlFile);

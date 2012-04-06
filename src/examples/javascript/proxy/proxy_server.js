@@ -15,14 +15,15 @@
  */
 load('vertx.js')
 
-var client = new vertx.HttpClient().setPort(8282);
+var client = vertx.createHttpClient().setPort(8282);
 
-var server = new vertx.HttpServer().requestHandler(function(req) {
+vertx.createHttpServer().requestHandler(function(req) {
   stdout.println("Proxying request: " + req.uri);
 
   var c_req = client.request(req.method, req.uri, function(c_res) {
     stdout.println("Proxying response: " + c_res.statusCode);
     req.response.statusCode = c_res.statusCode;
+    req.response.setChunked(true);
     req.response.putAllHeaders(c_res.headers());
     c_res.dataHandler(function(data) {
       stdout.println("Proxying response body: " + data);
@@ -30,7 +31,7 @@ var server = new vertx.HttpServer().requestHandler(function(req) {
     });
     c_res.endHandler(function() { req.response.end() });
   });
-
+  c_req.setChunked(true);
   c_req.putAllHeaders(req.headers());
   req.dataHandler(function(data) {
     stdout.println("Proxying request body " + data);
@@ -39,8 +40,3 @@ var server = new vertx.HttpServer().requestHandler(function(req) {
   req.endHandler(function() { c_req.end() });
 
 }).listen(8080)
-
-function vertxStop() {
-  client.close()
-  server.close()
-}

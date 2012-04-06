@@ -22,7 +22,6 @@ import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.eventbus.EventBus;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.json.JsonObject;
-import org.vertx.java.deploy.Container;
 import org.vertx.java.framework.TestClientBase;
 
 
@@ -31,16 +30,15 @@ import org.vertx.java.framework.TestClientBase;
  */
 public class TestClient extends TestClientBase {
 
-  private EventBus eb = EventBus.instance;
-
-  private String queueID;
+  private EventBus eb;
 
   @Override
   public void start() {
     super.start();
+    eb = vertx.eventBus();
     JsonObject config = new JsonObject();
     config.putString("address", "test.orderQueue");
-    queueID = Container.instance.deployWorkerVerticle(WorkQueue.class.getName(), config, 1, new SimpleHandler() {
+    container.deployWorkerVerticle(WorkQueue.class.getName(), config, 1, new SimpleHandler() {
       public void handle() {
         tu.appReady();
       }

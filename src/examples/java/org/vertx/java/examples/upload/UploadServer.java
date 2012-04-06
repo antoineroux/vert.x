@@ -21,21 +21,17 @@ import org.vertx.java.core.AsyncResultHandler;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.SimpleHandler;
 import org.vertx.java.core.file.AsyncFile;
-import org.vertx.java.core.file.FileSystem;
-import org.vertx.java.core.http.HttpServer;
 import org.vertx.java.core.http.HttpServerRequest;
 import org.vertx.java.core.streams.Pump;
 import org.vertx.java.deploy.Verticle;
 
 import java.util.UUID;
 
-public class UploadServer implements Verticle {
-
-  private HttpServer server;
+public class UploadServer extends Verticle {
 
   public void start() {
 
-    server = new HttpServer().requestHandler(new Handler<HttpServerRequest>() {
+    vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
       public void handle(final HttpServerRequest req) {
 
         // We first pause the request so we don't receive any data between now and when the file is opened
@@ -43,10 +39,10 @@ public class UploadServer implements Verticle {
 
         final String filename = "upload/file-" + UUID.randomUUID().toString() + ".upload";
 
-        FileSystem.instance.open(filename, new AsyncResultHandler<AsyncFile>() {
+        vertx.fileSystem().open(filename, new AsyncResultHandler<AsyncFile>() {
           public void handle(AsyncResult<AsyncFile> ar) {
             final AsyncFile file = ar.result;
-            final Pump pump = new Pump(req, file.getWriteStream());
+            final Pump pump = Pump.createPump(req, file.getWriteStream());
             final long start = System.currentTimeMillis();
             req.endHandler(new SimpleHandler() {
               public void handle() {
@@ -69,9 +65,5 @@ public class UploadServer implements Verticle {
         });
       }
     }).listen(8080);
-  }
-
-  public void stop() {
-    server.close();
   }
 }
