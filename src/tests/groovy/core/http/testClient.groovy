@@ -185,7 +185,7 @@ def httpMethod(ssl, method, chunked)  {
 
   path = "/someurl/blah.html"
   query = "param1=vparam1&param2=vparam2"
-  uri = "http://localhost:8080" + path + "?" + query;
+  uri = "http://localhost:8080" + path + "?" + query
 
   server.requestHandler { req ->
     tu.checkContext()
@@ -208,7 +208,7 @@ def httpMethod(ssl, method, chunked)  {
     req.endHandler {
       tu.checkContext()
       if (!chunked) {
-        req.response.headers['Content-Length'] = body.length()
+        req.response.headers['Content-Length'] = body.length
       }
       req.response << body
       if (chunked) {
@@ -256,7 +256,7 @@ def httpMethod(ssl, method, chunked)  {
   request.headers['header1'] = 'vheader1'
   request.headers['header2'] = 'vheader2'
   if (!chunked) {
-    request.headers['Content-Length'] = sentBuff.length()
+    request.headers['Content-Length'] = sentBuff.length
   }
 
   request << sentBuff

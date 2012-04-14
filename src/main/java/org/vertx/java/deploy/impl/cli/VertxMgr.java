@@ -61,7 +61,7 @@ public class VertxMgr {
     new VertxMgr(args);
   }
 
-  private VertxInternal vertx;
+  private VertxInternal vertx = new DefaultVertx();
   private VerticleManager mgr;
 
   private VertxMgr(String[] sargs) {
@@ -77,7 +77,7 @@ public class VertxMgr {
       VertxCommand cmd = null;
 
       if (sargs[0].equalsIgnoreCase("version")) {
-        System.out.println("vert.x 1.0.beta5");
+        System.out.println("vert.x 1.0.beta6");
       } else if (sargs[0].equalsIgnoreCase("start")) {
         startServer(args);
       } else if (sargs[0].equalsIgnoreCase("run")) {
@@ -260,8 +260,6 @@ public class VertxMgr {
         }
       }
       vertx = new DefaultVertx(clusterPort, clusterHost);
-    } else {
-      vertx = new DefaultVertx();
     }
     mgr = new VerticleManager(vertx);
     if (clustered) {
